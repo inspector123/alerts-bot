@@ -1,0 +1,22 @@
+{
+  "name": "alerts-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/inspector123/alerts-bot.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/inspector123/alerts-bot/issues"
+  },
+  "homepage": "https://github.com/inspector123/alerts-bot#readme",
+  "dependencies": {
+    "telegraf": "^4.11.2"
+  }
+}
