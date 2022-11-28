@@ -115,21 +115,16 @@ export const run = (bot, ctx, wallets) => {
                                                                     !log.topics.includes(log.address)
                                                                 )
                                                             });
-                                    
-                                        //console.log(swapPairUserLogs, 'swapPairUserLogs')
-                                                            
 
                                                             
                                         const swapSend = await Promise.all(swapPairUserLogs.filter(log=>{
-                                            //console.log(log.topics[1],tx.to, log.address)
-                                            //console.log(tx.to, 'to nolc' , tx.to.toLowerCse(), 'tx.to.tolc', log.topics[1], 'log.topics nolc', log.topics[1].toLowerCase() == 'log.topics lc' )
                                             return log.topics[1] == tx.from || (log.address == WETHAddress && log.topics[1] == tx.to)
                                         }).map(async log=> {
                                             const contract = new web3Read.eth.Contract(tokenABI, log.address)
-                                            const name = await contract.methods.name().call();
+                                            const symbol = await contract.methods.symbol().call();
                                             return {
-                                                hash: tx.transactionHash,
-                                                name,
+                                                contract,
+                                                symbol,
                                                 amount: new BigNumber(web3Read.utils.hexToNumberString(log.data)) / 10**(await contract.methods.decimals().call())
                                                     }
                                         }))
@@ -137,16 +132,28 @@ export const run = (bot, ctx, wallets) => {
                                             return log.topics[2] == tx.from || (log.address == WETHAddress && log.topics[2] == tx.to)
                                         }).map(async log=> {
                                             const contract = new web3Read.eth.Contract(tokenABI, log.address)
+                                            const symbol = await contract.methods.symbol().call();
                                             return {
-                                                hash: tx.transactionHash,
-                                                name: await contract.methods.name().call(),
+                                                contract,
+                                                symbol,
                                                 amount: new BigNumber(web3Read.utils.hexToNumberString(log.data)) / 10**(await contract.methods.decimals().call())
                                                 }
                                         }))
                                         const swapDetails = {sent: swapSend[0], received: swapReceive[0]}
-                                        console.log(swapDetails)
-                                        sendTelegramSwapMessage(bot,ctx,tx,swapDetails)
+                                        let tokenPairContract;
+                                        if (["USDC","USDT","WETH"].includes(swapDetails.sent.symbol)) {
+                                            tokenPairContract = await swapDetails.received.contract.methods.uniswapV2Pair().call();
+                                            tokenContractAddress = swapDetails.received.contract.address;
+                                        }
+                                        if (["USDC","USDT","WETH"].includes(swapDetails.received.symbol)) {
+                                            console.log('asdklfj')
+                                            tokenPairContract = await swapDetails.sent.contract.methods.uniswapV2Pair().call();
+                                            tokenContractAddress = swapDetails.sent.contract.address;
+                                        }
+                                        
+                                        sendTelegramSwapMessage(bot,ctx,tx,swapDetails, tokenPairContract, tokenContractAddress)
                                     }
+
                                 }
                             }
                         }, index*1500)
@@ -162,16 +169,18 @@ export const run = (bot, ctx, wallets) => {
     })
 }
 
-const sendTelegramSwapMessage = (bot, ctx, tx, swapDetails) => {
+const sendTelegramSwapMessage = (bot, ctx, tx, swapDetails,tokenPairContract) => {
     if (tx.to == UniswapV3Router2) {
-        console.log(tx.transactionHash, 'asfdjkl')
         bot.telegram.sendMessage(ctx.chat.id, 
-`New Uniswap Transaction from ${tx.from}! 
-Link: https://etherscan.io/tx/${tx.transactionHash}
+`New Uniswap Transaction from \`${tx.from}\`! 
+TX HASH: https://etherscan.io/tx/${tx.transactionHash}
+
 Details: 
-Sent: ${swapDetails.sent.amount} ${swapDetails.sent.name}
-Received: ${swapDetails.received.amount} ${swapDetails.received.name}
-//Dextools: 
+Sent: ${swapDetails.sent.amount} ${swapDetails.sent.symbol}
+Received: ${swapDetails.received.amount} ${swapDetails.received.symbol}
+Dextools: https://dextools.io/app/ether/pair-explorer/${tokenPairContract}
+Contract Address: https://etherscan.io/token/${tokenContractAddress}
+Wallet Link: https://etherscan.io/address/${tx.from}
         
         
         
@@ -248,9 +257,20 @@ const tokenABI = [
         stateMutability: "view",
         type: "function",
       },
-      {
+    {
         inputs: [],
         name: "name",
+        outputs: [{
+            internalType: "string",
+            name: "",
+            type: "string"
+        }],
+        stateMutability: "view",
+        type: "function"
+    },
+    {
+        inputs: [],
+        name: "symbol",
         outputs: [{
             internalType: "string",
             name: "",
