@@ -227,8 +227,8 @@ bot.command('add_wallets', ctx=>{
 
 bot.command('run',ctx=>{
 
-    bot.telegram.sendMessage(CHAT_ID,`Running...`)
-    run(bot, ctx, wallets, CHAT_ID)
+    bot.telegram.sendMessage(ctx.chat.id,`Running...`)
+    run(bot, ctx, wallets, ctx.chat.id)
 })
 
 bot.launch();

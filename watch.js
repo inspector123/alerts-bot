@@ -89,7 +89,10 @@ export const run = (bot, ctx, wallets, chatId) => {
                                 
                                 let { from, hash, to } = tx;
                                 if (walletsLowerCase.includes(tx.from.toLowerCase())) {
-                                    
+                                    if (tx.to.toLowerCase() == UniswapV3Router2.toLowerCase()) {
+                                        console.log(txHash, tx.from, 'nonUniTX')
+                                        return;
+                                    }
                                         
                                     
                                     if (tx.logs) {
@@ -133,12 +136,13 @@ export const run = (bot, ctx, wallets, chatId) => {
                                                 }
                                         }))
                                         const swapDetails = {sent: swapSend[0], received: swapReceive[0]}
-                                        let tokenPairContract;
-                                        if (["USDC","USDT","WETH"].includes(swapDetails.sent.symbol)) {
+                                        console.log(tx.from, swapDetails)
+                                        let tokenPairContract, tokenContractAddress;
+                                        if (swapDetails.sent.length && ["USDC","USDT","WETH"].includes(swapDetails.sent.symbol)) {
                                             tokenPairContract = await swapDetails.received.contract.methods.uniswapV2Pair().call();
                                             tokenContractAddress = swapDetails.received.contract.address;
                                         }
-                                        if (["USDC","USDT","WETH"].includes(swapDetails.received.symbol)) {
+                                        if (swapDetails.received.length && ["USDC","USDT","WETH"].includes(swapDetails.received.symbol)) {
                                             console.log('asdklfj')
                                             tokenPairContract = await swapDetails.sent.contract.methods.uniswapV2Pair().call();
                                             tokenContractAddress = swapDetails.sent.contract.address;
@@ -149,7 +153,7 @@ export const run = (bot, ctx, wallets, chatId) => {
 
                                 }
                             }
-                        }, index*1500)
+                        }, index*300)
                         
                     })
                 }
@@ -162,17 +166,19 @@ export const run = (bot, ctx, wallets, chatId) => {
     })
 }
 
-const sendTelegramSwapMessage = (bot, ctx, tx, swapDetails,tokenPairContract) => {
+const sendTelegramSwapMessage = (bot, ctx, tx, swapDetails,tokenPairContract, tokenContractAddress) => {
     if (tx.to == UniswapV3Router2) {
         bot.telegram.sendMessage(chatId, 
-`New Uniswap Transaction from \`${tx.from}\`! 
+`New Transaction from \`${tx.from}\`! 
 TX HASH: https://etherscan.io/tx/${tx.transactionHash}
 
 Details: 
-Sent: ${swapDetails.sent.amount} ${swapDetails.sent.symbol}
-Received: ${swapDetails.received.amount} ${swapDetails.received.symbol}
-Dextools: https://dextools.io/app/ether/pair-explorer/${tokenPairContract}
-Contract Address: https://etherscan.io/token/${tokenContractAddress}
+${swapDetails.received.length ? `Sent: ${swapDetails.sent.amount} ${swapDetails.sent?.symbol}` : ``}
+
+${swapDetails.received.length ? `Received: ${swapDetails.received?.amount} ${swapDetails.received?.symbol}` : ``}
+${tokenPairContract.length ? `Dextools: https://dextools.io/app/ether/pair-explorer/${tokenPairContract}` : ``}
+
+${tokenPairContract.length ? `Contract Address: https://etherscan.io/token/${tokenContractAddress}` : ``}
 Wallet Link: https://etherscan.io/address/${tx.from}
         
         
