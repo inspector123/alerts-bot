@@ -39,7 +39,7 @@ const getEtherscan = async () => {
 }
 
 
-export const run = (bot, ctx, wallets) => {
+export const run = (bot, ctx, wallets, chatId) => {
 
     const walletsLowerCase = wallets.map(w=>w.toLowerCase());
     console.log(walletsLowerCase)
@@ -62,7 +62,7 @@ export const run = (bot, ctx, wallets) => {
             const blockNumber = blockHeader.number;
             let _transactions = [];
             await web3Read.eth.getBlock(blockHeader.number).then(async (block) => {
-                let transactions;
+                //let transactions;
                 //console.log(block)
                 if (block) {
                     //const {transactions} = block;
@@ -82,20 +82,13 @@ export const run = (bot, ctx, wallets) => {
 
                     //pepebet to usdt
                     //0x57e36692a244acb165b0993dcbc085f536931c26834829dcc14319c4fb5b68df
-
-                    transactions = ['0xb76d3c3e4aeb2bb399be4a4510c28a60ed9b453b009d404ab07e05fb4afd5dda',
-                '0x15561e64745c81d4c5927044373027117219eab3e5ce78261144027a32c1e8d4',
-            '0x8544eac09dc26ab8eddf524d2cf5b6ed8c64d5c5fd9c9fea411bbf528d516d38',
-        '0x3a0fed98c8e96c6c41cb13a51cc8b5faa5dddefd0d7e3fa913d66f5bcbe39c9b' ,
-   '0x57e36692a244acb165b0993dcbc085f536931c26834829dcc14319c4fb5b68df' 
-]
                     transactions.forEach(async (txHash, index)=> {
                         setTimeout(async ()=>{
                             let tx = await web3Read.eth.getTransactionReceipt(txHash);
                             if (tx != null) {
                                 
                                 let { from, hash, to } = tx;
-                                if (1==1) {
+                                if (walletsLowerCase.includes(tx.from.toLowerCase())) {
                                     
                                         
                                     
@@ -163,7 +156,7 @@ export const run = (bot, ctx, wallets) => {
             })
         }
         catch(e) {
-            bot.telegram.sendMessage(ctx.chat.id,`Error in run application: ${`${e}`}`)
+            bot.telegram.sendMessage(chatId,`Error in run application: ${`${e}`}`)
             console.log(e)
         }
     })
@@ -171,7 +164,7 @@ export const run = (bot, ctx, wallets) => {
 
 const sendTelegramSwapMessage = (bot, ctx, tx, swapDetails,tokenPairContract) => {
     if (tx.to == UniswapV3Router2) {
-        bot.telegram.sendMessage(ctx.chat.id, 
+        bot.telegram.sendMessage(chatId, 
 `New Uniswap Transaction from \`${tx.from}\`! 
 TX HASH: https://etherscan.io/tx/${tx.transactionHash}
 
@@ -186,14 +179,14 @@ Wallet Link: https://etherscan.io/address/${tx.from}
         
         `)
     } else if (tx.to == OneInchv5Router) {
-        bot.telegram.sendMessage(ctx.chat.id, `New 1Inchv5 Transaction from ${tx.from}!
+        bot.telegram.sendMessage(chatId, `New 1Inchv5 Transaction from ${tx.from}!
         https://etherscan.io/tx/${tx.transactionHash}`)
     } 
     else if (tx.to == KyberSwap) {
-        bot.telegram.sendMessage(ctx.chat.id, `New KyberSwap Transaction from ${tx.from}
+        bot.telegram.sendMessage(chatId, `New KyberSwap Transaction from ${tx.from}
         https://etherscan.io/tx/${tx.transactionhash}`)
     } else {
-        bot.telegram.sendMessage(ctx.chat.id, `New Transaction from ${tx.from}!
+        bot.telegram.sendMessage(chatId, `New Transaction from ${tx.from}!
         https://etherscan.io/tx/${tx.transactionhash}
         
         Tx Input: ${tx.input}
