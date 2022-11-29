@@ -166,8 +166,8 @@ export const run = (bot, ctx, wallets, chatId) => {
     })
 }
 
-const sendTelegramSwapMessage = (bot, ctx, tx, swapDetails,tokenPairContract, tokenContractAddress) => {
-    if (tx.to == UniswapV3Router2) {
+const sendTelegramSwapMessage = (bot, chatId, tx, swapDetails,tokenPairContract, tokenContractAddress) => {
+    if (tx.to.toLowerCase() == UniswapV3Router2) {
         bot.telegram.sendMessage(chatId, 
 `New Transaction from \`${tx.from}\`! 
 TX HASH: https://etherscan.io/tx/${tx.transactionHash}
