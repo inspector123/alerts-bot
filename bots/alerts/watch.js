@@ -103,14 +103,14 @@ export const run = (bot, ctx, wallets, chatId) => {
                                             return log
                                         })
                                         .filter(log=>{
-                                                                // log.topics.includes(from) ||  && 
-                                                                return (
-                                                                    ((log.topics.includes(from) && !log.topics.includes(tx.to)) || (log.address.toLowerCase() == WETHAddress && log.topics.includes(tx.to))) &&
-                                                                    log.topics.length == 3 &&
-                                                                //exclude fee
-                                                                    !log.topics.includes(log.address)
-                                                                )
-                                                            });
+                                            // log.topics.includes(from) ||  && 
+                                            return (
+                                                ((log.topics.includes(from) && !log.topics.includes(tx.to)) || (log.address.toLowerCase() == WETHAddress && log.topics.includes(tx.to))) &&
+                                                log.topics.length == 3 &&
+                                            //exclude fee
+                                                !log.topics.includes(log.address)
+                                            )
+                                        });
 
                                                             
                                         const swapSend = await Promise.all(swapPairUserLogs.filter(log=>{
