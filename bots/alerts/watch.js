@@ -42,7 +42,6 @@ const getEtherscan = async () => {
 export const run = (bot, ctx, wallets, chatId) => {
 
     const walletsLowerCase = wallets.map(w=>w.toLowerCase());
-    console.log(walletsLowerCase)
 
     const web3ws = new Web3(new Web3.providers.WebsocketProvider(ZmokRpc.Mainnet.Wss))
     const web3Read = new Web3(new Web3.providers.WebsocketProvider(ZmokRpc.Mainnet.Http))
@@ -135,7 +134,7 @@ export const run = (bot, ctx, wallets, chatId) => {
                                                 amount: new BigNumber(web3Read.utils.hexToNumberString(log.data)) / 10**(await contract.methods.decimals().call())
                                                 }
                                         }))
-                                        const swapDetails = {sent: swapSend[0], received: swapReceive[0]}
+                                        const swapDetails = swapSend && swapReceive ? {sent: swapSend[0], received: swapReceive[0]}: []
                                         console.log(tx.from, swapDetails)
                                         let tokenPairContract, tokenContractAddress;
                                         if (swapDetails.sent.length && ["USDC","USDT","WETH"].includes(swapDetails.sent.symbol)) {
@@ -157,7 +156,7 @@ export const run = (bot, ctx, wallets, chatId) => {
                         
                     })
                 }
-            })
+            }).catch(e=>console.log(e))
         }
         catch(e) {
             bot.telegram.sendMessage(chatId,`Error in run application: ${`${e}`}`)
