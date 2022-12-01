@@ -81,6 +81,9 @@ export const run = (bot, ctx, wallets, chatId) => {
 
                     //pepebet to usdt
                     //0x57e36692a244acb165b0993dcbc085f536931c26834829dcc14319c4fb5b68df
+
+                    //1inch agix to weth
+                    //0x6e9c18fcc16b5282ba040631edfffd0a5c688467a83175c8eb4910be4d841481
                     transactions.forEach(async (txHash, index)=> {
                         setTimeout(async ()=>{
                             let tx = await web3Read.eth.getTransactionReceipt(txHash);

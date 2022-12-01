@@ -62,24 +62,46 @@ export class Watcher {
     web3Http;
 
     
-    constructor(chat_id, wallets, alertBotKey, volumeBotKey, testnet=false){
+    constructor(chatId, wallets, alertBotKey, volumeBotKey, testnet) {
+        this.chatId = chatId;
         this.wallets = wallets;
         this.alertBot = new Telegraf(alertBotKey);
         this.volumeBot = new Telegraf(volumeBotKey);
-        this.alertBot.launch();
-        this.volumeBot.launch();
+        this.startBots();
         if (testnet) {
             this.wssProvider = ZmokRpc.Goerli.Wss;
             this.httpProvider = ZmokRpc.Goerli.Http;
+        } else {
+            this.wssProvider = ZmokRpc.Mainnet.Wss;
+            this.httpProvider = ZmokRpc.Mainnet.Http;
         }
         this.web3ws = new Web3(new Web3.providers.WebsocketProvider(this.wssProvider));
-        this.web3Http = new Web3(new Web3.providers.HttpProvider(ZmokRpc.Mainnet.Http));
+        this.web3Http = new Web3(new Web3.providers.HttpProvider(this.httpProvider));
 
+    }
+
+    startBots = async () => {
+        this.alertBot.launch();
+        this.volumeBot.launch();
+        this.alertBot.command('start', ctx => {
+            this.alertBot.telegram.sendMessage(this.chatId, `Welcome. Hit /runAlertBot to begin.`, {
+            })
+            
+            
+        
+        })
+        this.volumeBot.command('start', ctx => {
+            this.volumeBot.telegram.sendMessage(this.chatId, `Welcome. Hit /runVolumeBot to begin.`, {
+            })
+            
+            
+        
+        })
     }
 
     
 
-    decodeUniV3Router2(txHash) {
+    async decodeUniV3Router2(txHash) {
         try {
             let tx = await this.web3Http.eth.getTransactionReceipt(txHash);
             if (tx != null) {
@@ -160,7 +182,7 @@ export class Watcher {
 
     }
 
-    runBlockCheck (bot, ctx, wallets, chatId) {
+    runBlockCheck (bot, chatId) {
 
         
         const subscriptionNewBlockHeaders = this.web3ws.eth.subscribe('newBlockHeaders', (err, res) => {
@@ -214,15 +236,15 @@ export class Watcher {
                 }
             }
             catch(e) {
-                bot.telegram.sendMessage(chatId,`Error in run application: ${`${e}`}`)
+                this.alertBot.telegram.sendMessage(chatId,`Error in run application: ${`${e}`}`)
                 console.log(e)
             }
-        }
+        })
     }
     
     sendTelegramSwapMessage = (bot, chatId, tx, swapDetails,tokenPairContract, tokenContractAddress) => {
         if (tx.to.toLowerCase() == UniswapV3Router2) {
-            bot.telegram.sendMessage(chatId, 
+            this.alertBot.telegram.sendMessage(chatId, 
     `New Transaction from \`${tx.from}\`! 
 TX HASH: https://etherscan.io/tx/${tx.transactionHash}
 
@@ -239,14 +261,14 @@ Wallet Link: https://etherscan.io/address/${tx.from}
             
             `)
         } else if (tx.to == OneInchv5Router) {
-            bot.telegram.sendMessage(chatId, `New 1Inchv5 Transaction from ${tx.from}!
+            this.alertBot.telegram.sendMessage(chatId, `New 1Inchv5 Transaction from ${tx.from}!
             https://etherscan.io/tx/${tx.transactionHash}`)
         } 
         else if (tx.to == KyberSwap) {
-            bot.telegram.sendMessage(chatId, `New KyberSwap Transaction from ${tx.from}
+            this.alertBot.telegram.sendMessage(chatId, `New KyberSwap Transaction from ${tx.from}
             https://etherscan.io/tx/${tx.transactionhash}`)
         } else {
-            bot.telegram.sendMessage(chatId, `New Transaction from ${tx.from}!
+            this.alertBot.telegram.sendMessage(chatId, `New Transaction from ${tx.from}!
             https://etherscan.io/tx/${tx.transactionhash}
             
             Tx Input: ${tx.input}

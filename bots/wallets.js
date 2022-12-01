@@ -1,4 +1,4 @@
-export default wallets = [
+const wallets = [
     "0xfed3d7216792066A442bbE2b3E1166F15Bdd334a",
     "0x01436EfC8f74d2Fb9EC1e7Bb9e7A073ae4C1De81",
     "0x02EDcE34b9dA220C862C8900f9839235bD0BE331",
@@ -199,3 +199,4 @@ export default wallets = [
     "0xfc98B38327204827e2eAaDbC17b6682bAD0ebeC1",
     "0xfE83e3d5096aD14c0AFB93047fa840bfC948f358"
     ]
+export default wallets;
