@@ -36,7 +36,8 @@ const ZmokRpc = {
     Mainnet:{Http:'http://api.zmok.io/mainnet/dr6hhpfzbdbw02tt',Wss:"wss://api.zmok.io/mainnet/m9w6qf9hzy8otaz3", Https:'https://api.zmok.io/mainnet/dr6hhpfzbdbw02tt'},
     Ropsten:{Http:'https://nd-956-261-887.p2pify.com/3514e113ffeec96265dbadd4d269618f',Wss:"wss://ws-nd-956-261-887.p2pify.com/3514e113ffeec96265dbadd4d269618f", Https:'https://nd-956-261-887.p2pify.com/3514e113ffeec96265dbadd4d269618f'},
     Frontrun: {Http:'http://api.zmok.io/fr/cazc7ppjlx8q04t1',Wss:"wss://api.zmok.io/fr/cazc7ppjlx8q04t1", Https:'https://api.zmok.io/fr/cazc7ppjlx8q04t1'},
-    Rinkeby: {Http: 'https://nd-124-352-437.p2pify.com/0994e8509acdbcd17fd085032fa03ba2', Wss: 'wss://ws-nd-124-352-437.p2pify.com/0994e8509acdbcd17fd085032fa03ba2', Https: 'https://nd-124-352-437.p2pify.com/0994e8509acdbcd17fd085032fa03ba2' }
+    Rinkeby: {Http: 'https://nd-124-352-437.p2pify.com/0994e8509acdbcd17fd085032fa03ba2', Wss: 'wss://ws-nd-124-352-437.p2pify.com/0994e8509acdbcd17fd085032fa03ba2', Https: 'https://nd-124-352-437.p2pify.com/0994e8509acdbcd17fd085032fa03ba2' },
+    Goerli: {Http: "", Wss: ""}
 }
 
 
@@ -45,99 +46,124 @@ const OneInchv5Router = '0x1111111254eeb25477b68fb85ed929f73a960582'
 const KyberSwap = '0x617dee16b86534a5d792a4d7a62fb491b544111e'
 const apiKey = `3UNWDPMM65ARUPABPKM9MQXEAM3MYAATN6`;
 const WETHAddress = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".toLowerCase()
+const UniswapV2 = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+const WETHRopsten = "0xc778417E063141139Fce010982780140Aa0cD5Ab"
 
 export class Watcher {
 
     walletsLowerCase = wallets.map(w=>w.toLowerCase());
-    web3ws = new Web3(new Web3.providers.WebsocketProvider(ZmokRpc.Mainnet.Wss))
-    web3Read = new Web3(new Web3.providers.WebsocketProvider(ZmokRpc.Mainnet.Http))
+    
     alertBot;
     volumeBot;
+    testnet;
+    wssProvider;
+    httpProvider
+    web3ws;
+    web3Http;
 
     
-    constructor(chat_id, wallets, alertBotKey, volumeBotKey){
+    constructor(chat_id, wallets, alertBotKey, volumeBotKey, testnet=false){
         this.wallets = wallets;
         this.alertBot = new Telegraf(alertBotKey);
         this.volumeBot = new Telegraf(volumeBotKey);
         this.alertBot.launch();
         this.volumeBot.launch();
+        if (testnet) {
+            this.wssProvider = ZmokRpc.Goerli.Wss;
+            this.httpProvider = ZmokRpc.Goerli.Http;
+        }
+        this.web3ws = new Web3(new Web3.providers.WebsocketProvider(this.wssProvider));
+        this.web3Http = new Web3(new Web3.providers.HttpProvider(ZmokRpc.Mainnet.Http));
 
     }
 
     
 
     decodeUniV3Router2(txHash) {
-        let tx = await web3Read.eth.getTransactionReceipt(txHash);
-        if (tx != null) {
-            
-            let { from, hash, to } = tx;
-                if (tx.to.toLowerCase() == UniswapV3Router2.toLowerCase()) {
-                    console.log(txHash, tx.from, 'nonUniTX')
-                    return;
-                }
+        try {
+            let tx = await this.web3Http.eth.getTransactionReceipt(txHash);
+            if (tx != null) {
+                
+                let { from, hash, to } = tx;
+                    if (tx.to.toLowerCase() == UniswapV3Router2.toLowerCase()) {
+                        console.log(txHash, tx.from, 'nonUniTX')
+                        return;
+                    }
+                        
                     
-                
-            if (tx.logs) {
-                const swaps = []
-                const swapPairUserLogs = tx.logs.map(log=>{
-                    log.address = log.address.toLowerCase();
-                    log.topics = log.topics.map(t=>t.replace('0x000000000000000000000000', '0x'));
-                    return log
-                })
-                .filter(log=>{
-                    // log.topics.includes(from) ||  && 
-                    return (
-                        ((log.topics.includes(from) && !log.topics.includes(tx.to)) || (log.address.toLowerCase() == WETHAddress && log.topics.includes(tx.to))) &&
-                        log.topics.length == 3 &&
-                    //exclude fee
-                        !log.topics.includes(log.address)
-                    )
-                });
+                if (tx.logs) {
+                    const swaps = []
+                    const swapPairUserLogs = tx.logs.map(log=>{
+                        log.address = log.address.toLowerCase();
+                        log.topics = log.topics.map(t=>t.replace('0x000000000000000000000000', '0x'));
+                        return log
+                    })
+                    .filter(log=>{
+                        // log.topics.includes(from) ||  && 
+                        return (
+                            ((log.topics.includes(from) && !log.topics.includes(tx.to)) || (log.address.toLowerCase() == WETHAddress && log.topics.includes(tx.to))) &&
+                            log.topics.length == 3 &&
+                        //exclude fee
+                            !log.topics.includes(log.address)
+                        )
+                    });
 
-                                    
-                const swapSend = await Promise.all(swapPairUserLogs.filter(log=>{
-                    return log.topics[1] == tx.from || (log.address == WETHAddress && log.topics[1] == tx.to)
-                }).map(async log=> {
-                    const contract = new web3Read.eth.Contract(tokenABI, log.address)
-                    const symbol = await contract.methods.symbol().call();
-                    return {
-                        contract,
-                        symbol,
-                        amount: new BigNumber(web3Read.utils.hexToNumberString(log.data)) / 10**(await contract.methods.decimals().call())
+                                        
+                    const swapSend = await Promise.all(swapPairUserLogs.filter(log=>{
+                        return log.topics[1] == tx.from || (log.address == WETHAddress && log.topics[1] == tx.to)
+                    }).map(async log=> {
+                        const contract = new this.web3Http.eth.Contract(tokenABI, log.address)
+                        const symbol = await contract.methods.symbol().call();
+                        return {
+                            contract,
+                            symbol,
+                            amount: new BigNumber(this.web3Http.utils.hexToNumberString(log.data)) / 10**(await contract.methods.decimals().call())
+                                }
+                    }))
+                    const swapReceive = await Promise.all(swapPairUserLogs.filter(log=>{
+                        return log.topics[2] == tx.from || (log.address == WETHAddress && log.topics[2] == tx.to)
+                    }).map(async log=> {
+                        const contract = new this.web3Http.eth.Contract(tokenABI, log.address)
+                        const symbol = await contract.methods.symbol().call();
+                        return {
+                            contract,
+                            symbol,
+                            amount: new BigNumber(this.web3Http.utils.hexToNumberString(log.data)) / 10**(await contract.methods.decimals().call())
                             }
-                }))
-                const swapReceive = await Promise.all(swapPairUserLogs.filter(log=>{
-                    return log.topics[2] == tx.from || (log.address == WETHAddress && log.topics[2] == tx.to)
-                }).map(async log=> {
-                    const contract = new web3Read.eth.Contract(tokenABI, log.address)
-                    const symbol = await contract.methods.symbol().call();
-                    return {
-                        contract,
-                        symbol,
-                        amount: new BigNumber(web3Read.utils.hexToNumberString(log.data)) / 10**(await contract.methods.decimals().call())
-                        }
-                }))
-                const swapDetails = swapSend && swapReceive ? {sent: swapSend[0], received: swapReceive[0]}: []
-                console.log(tx.from, swapDetails)
-                let tokenPairContract, tokenContractAddress;
-                if (swapDetails.sent.length && ["USDC","USDT","WETH"].includes(swapDetails.sent.symbol)) {
-                    tokenPairContract = await swapDetails.received.contract.methods.uniswapV2Pair().call();
-                    tokenContractAddress = swapDetails.received.contract.address;
+                    }))
+                    const swapDetails = swapSend && swapReceive ? {sent: swapSend[0], received: swapReceive[0]}: []
+                    console.log(tx.from, swapDetails)
+                    let tokenPairContract, tokenContractAddress;
+                    if (swapDetails.sent.length && ["USDC","USDT","WETH"].includes(swapDetails.sent.symbol)) {
+                        tokenPairContract = await swapDetails.received.contract.methods.uniswapV2Pair().call();
+                        tokenContractAddress = swapDetails.received.contract.address;
+                    }
+                    if (swapDetails.received.length && ["USDC","USDT","WETH"].includes(swapDetails.received.symbol)) {
+                        console.log('asdklfj')
+                        tokenPairContract = await swapDetails.sent.contract.methods.uniswapV2Pair().call();
+                        tokenContractAddress = swapDetails.sent.contract.address;
+                    }
+                    
+                    sendTelegramSwapMessage(bot,ctx,tx,swapDetails, tokenPairContract, tokenContractAddress)
                 }
-                if (swapDetails.received.length && ["USDC","USDT","WETH"].includes(swapDetails.received.symbol)) {
-                    console.log('asdklfj')
-                    tokenPairContract = await swapDetails.sent.contract.methods.uniswapV2Pair().call();
-                    tokenContractAddress = swapDetails.sent.contract.address;
-                }
-                
-                sendTelegramSwapMessage(bot,ctx,tx,swapDetails, tokenPairContract, tokenContractAddress)
             }
+        } catch(e) {
+            console.log(e)
         }
     }
-    run (bot, ctx, wallets, chatId) {
+
+    decodeUniV2() {
+
+    }
+
+    decodeKyberSwap() {
+
+    }
+
+    runBlockCheck (bot, ctx, wallets, chatId) {
 
         
-        const subscriptionNewBlockHeaders = web3ws.eth.subscribe('newBlockHeaders', (err, res) => {
+        const subscriptionNewBlockHeaders = this.web3ws.eth.subscribe('newBlockHeaders', (err, res) => {
             if (err) console.error(err);
         })
     
@@ -151,31 +177,47 @@ export class Watcher {
                             Current Time: ${new Date(Date.now())}`)
                 const blockNumber = blockHeader.number;
                 let _transactions = [];
-                let block = await web3Read.eth.getBlock(blockHeader.number);
-                    if (block) {
-                        let { transactions } = block;
-                        _transactions = transactions;
-                        transactions.forEach(async (txHash, index) => {
-                            setTimeout(async ()=>{
+                let block = await this.web3Http.eth.getBlock(blockHeader.number);
+                if (block) {
+                    let { transactions } = block;
+                    _transactions = transactions;
+                    transactions.forEach(async (txHash, index) => {
+                        setTimeout(async ()=>{
 
-                                //see tx.to from getTransaction
+                            //see tx.to from getTransaction
 
-                                //if tx.to is from UniV3 getTransactionReceipt
+                            //if tx.to is from UniV3 getTransactionReceipt
 
-                                //if tx.to is univ2 just use tx.input
-                                decodeUniV3Router2();
-                                l
-                            }, index*300)
-                            
-                        })
-                    }
-                }).catch(e=>console.log(e))
+                            //if tx.to is univ2 just use tx.input
+
+                            switch(tx.to) {
+                                case UniswapV2:
+                                    this.decodeUniV2(tx);
+                                    break;
+                                case UniswapV3Router2:
+                                    this.decodeUniV3Router2(tx);
+                                    break;
+                                case KyberSwap: 
+                                    this.decodeKyberSwap(tx);
+                                    break;
+                                case OneInchv5Router:
+                                    this.decode1Inchv5Router(tx);
+                                    break;
+                                default:
+                                    break;
+                                //find out what happens when someone sends a 
+                                //token
+                            }
+                        }, index*300)
+                        
+                    })
+                }
             }
             catch(e) {
                 bot.telegram.sendMessage(chatId,`Error in run application: ${`${e}`}`)
                 console.log(e)
             }
-        })
+        }
     }
     
     sendTelegramSwapMessage = (bot, chatId, tx, swapDetails,tokenPairContract, tokenContractAddress) => {
