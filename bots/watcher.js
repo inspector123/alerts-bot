@@ -28,12 +28,13 @@ import { get } from 'http';
 import path from 'path'
 import { Telegraf } from 'telegraf';
 import Web3 from 'web3';
+import { run } from './alerts/watch.js';
 import wallets from './wallets.js'
 
 
 const ZmokRpc = {
     MainnetArchive: {Http:'http://api.zmok.io/archive/ddrxnhgtnvivsmkj',Wss:"", Https:'https://api.zmok.io/archive/ddrxnhgtnvivsmkj'},
-    Mainnet:{Http:'http://api.zmok.io/mainnet/dr6hhpfzbdbw02tt',Wss:"wss://api.zmok.io/mainnet/m9w6qf9hzy8otaz3", Https:'https://api.zmok.io/mainnet/dr6hhpfzbdbw02tt'},
+    Mainnet:{Http:'https://api.zmok.io/mainnet/4pjcsinknvgzqloz',Wss:"wss://api.zmok.io/mainnet/4pjcsinknvgzqloz", Https:'https://api.zmok.io/mainnet/dr6hhpfzbdbw02tt'},
     Ropsten:{Http:'https://nd-956-261-887.p2pify.com/3514e113ffeec96265dbadd4d269618f',Wss:"wss://ws-nd-956-261-887.p2pify.com/3514e113ffeec96265dbadd4d269618f", Https:'https://nd-956-261-887.p2pify.com/3514e113ffeec96265dbadd4d269618f'},
     Frontrun: {Http:'http://api.zmok.io/fr/cazc7ppjlx8q04t1',Wss:"wss://api.zmok.io/fr/cazc7ppjlx8q04t1", Https:'https://api.zmok.io/fr/cazc7ppjlx8q04t1'},
     Rinkeby: {Http: 'https://nd-124-352-437.p2pify.com/0994e8509acdbcd17fd085032fa03ba2', Wss: 'wss://ws-nd-124-352-437.p2pify.com/0994e8509acdbcd17fd085032fa03ba2', Https: 'https://nd-124-352-437.p2pify.com/0994e8509acdbcd17fd085032fa03ba2' },
@@ -52,7 +53,7 @@ const WETHRopsten = "0xc778417E063141139Fce010982780140Aa0cD5Ab"
 export class Watcher {
 
     walletsLowerCase = wallets.map(w=>w.toLowerCase());
-    
+    chatId;
     alertBot;
     volumeBot;
     testnet;
@@ -60,6 +61,7 @@ export class Watcher {
     httpProvider
     web3ws;
     web3Http;
+    running = false;
 
     
     constructor(chatId, wallets, alertBotKey, volumeBotKey, testnet) {
@@ -81,8 +83,7 @@ export class Watcher {
     }
 
     startBots = async () => {
-        this.alertBot.launch();
-        this.volumeBot.launch();
+
         this.alertBot.command('start', ctx => {
             this.alertBot.telegram.sendMessage(this.chatId, `Welcome. Hit /runAlertBot to begin.`, {
             })
@@ -97,6 +98,19 @@ export class Watcher {
             
         
         })
+        this.volumeBot.command('r', ctx=>{
+            if (!this.running) {
+                this.volumeBot.telegram.sendMessage(this.chatId, `Running`)
+                this.runBlockCheck()
+                this.running = true
+            } else {
+                this.volumeBot.telegram.sendMessage(this.chatId, `Already running.`)
+
+            }
+        })
+
+        this.alertBot.launch();
+        this.volumeBot.launch();
     }
 
     
@@ -174,6 +188,81 @@ export class Watcher {
         }
     }
 
+    async decodeLogs(txHash) {
+        try {
+            let tx = await this.web3Http.eth.getTransactionReceipt(txHash);
+            if (tx != null) {
+                
+                let { from, hash, to } = tx;
+                    if (tx.to.toLowerCase() == UniswapV3Router2.toLowerCase()) {
+                        console.log(txHash, tx.from, 'nonUniTX')
+                        return;
+                    }
+                        
+                    
+                if (tx.logs) {
+                    const swaps = []
+                    const swapPairUserLogs = tx.logs.map(log=>{
+                        log.address = log.address.toLowerCase();
+                        log.topics = log.topics.map(t=>t.replace('0x000000000000000000000000', '0x'));
+                        return log
+                    })
+                    .filter(log=>{
+                        // log.topics.includes(from) ||  && 
+                        return (
+                            ((log.topics.includes(from) && !log.topics.includes(tx.to)) || (log.address.toLowerCase() == WETHAddress && log.topics.includes(tx.to))) &&
+                            log.topics.length == 3 &&
+                        //exclude fee
+                            !log.topics.includes(log.address)
+                        )
+                    });
+
+                                        
+                    const swapSend = await Promise.all(swapPairUserLogs.filter(log=>{
+                        return log.topics[1] == tx.from || (log.address == WETHAddress && log.topics[1] == tx.to)
+                    }).map(async log=> {
+                        const contract = new this.web3Http.eth.Contract(tokenABI, log.address)
+                        const symbol = await contract.methods.symbol().call();
+                        return {
+                            contract,
+                            symbol,
+                            amount: new BigNumber(this.web3Http.utils.hexToNumberString(log.data)) / 10**(await contract.methods.decimals().call())
+                                }
+                    }))
+                    const swapReceive = await Promise.all(swapPairUserLogs.filter(log=>{
+                        return log.topics[2] == tx.from || (log.address == WETHAddress && log.topics[2] == tx.to)
+                    }).map(async log=> {
+                        const contract = new this.web3Http.eth.Contract(tokenABI, log.address)
+                        const symbol = await contract.methods.symbol().call();
+                        return {
+                            contract,
+                            symbol,
+                            amount: new BigNumber(this.web3Http.utils.hexToNumberString(log.data)) / 10**(await contract.methods.decimals().call())
+                            }
+                    }))
+                    const swapDetails = swapSend && swapReceive ? {sent: swapSend[0], received: swapReceive[0]}: []
+                    console.log(tx.from, swapDetails)
+                    let tokenPairContract, tokenContractAddress;
+                    if (swapDetails.sent && swapDetails.received) {
+                        if (swapDetails.sent && ["USDC","USDT","WETH"].includes(swapDetails.sent.symbol)) {
+                            tokenPairContract = await swapDetails.received.contract.methods.uniswapV2Pair().call();
+                            tokenContractAddress = swapDetails.received.contract.address;
+                        }
+                        if (swapDetails.received && ["USDC","USDT","WETH"].includes(swapDetails.received.symbol)) {
+                            console.log('asdklfj')
+                            tokenPairContract = await swapDetails.sent.contract.methods.uniswapV2Pair().call();
+                            tokenContractAddress = swapDetails.sent.contract.address;
+                        }
+                    }
+                    
+                    this.sendTelegramSwapMessage(tx,swapDetails, tokenPairContract, tokenContractAddress)
+                }
+            }
+        } catch(e) {
+            console.log(e)
+        }
+    }
+
     decodeUniV2() {
 
     }
@@ -182,7 +271,7 @@ export class Watcher {
 
     }
 
-    runBlockCheck (bot, chatId) {
+    runBlockCheck () {
 
         
         const subscriptionNewBlockHeaders = this.web3ws.eth.subscribe('newBlockHeaders', (err, res) => {
@@ -206,77 +295,78 @@ export class Watcher {
                     transactions.forEach(async (txHash, index) => {
                         setTimeout(async ()=>{
 
+                            this.decodeLogs('0x6e7291f3270074f030b7ed6c831d78097c73e0c8785f474be0ea4600ec6cd028')
                             //see tx.to from getTransaction
 
                             //if tx.to is from UniV3 getTransactionReceipt
 
                             //if tx.to is univ2 just use tx.input
 
-                            switch(tx.to) {
-                                case UniswapV2:
-                                    this.decodeUniV2(tx);
-                                    break;
-                                case UniswapV3Router2:
-                                    this.decodeUniV3Router2(tx);
-                                    break;
-                                case KyberSwap: 
-                                    this.decodeKyberSwap(tx);
-                                    break;
-                                case OneInchv5Router:
-                                    this.decode1Inchv5Router(tx);
-                                    break;
-                                default:
-                                    break;
+                            // switch(tx.to) {
+                            //     case UniswapV2:
+                            //         this.decodeUniV2(tx);
+                            //         break;
+                            //     case UniswapV3Router2:
+                            //         this.decodeUniV3Router2(tx);
+                            //         break;
+                            //     case KyberSwap: 
+                            //         this.decodeKyberSwap(tx);
+                            //         break;
+                            //     case OneInchv5Router:
+                            //         this.decode1Inchv5Router(tx);
+                            //         break;
+                            //     default:
+                            //         break;
                                 //find out what happens when someone sends a 
                                 //token
-                            }
-                        }, index*300)
+                            
+                        }, index*2500)
                         
                     })
                 }
             }
             catch(e) {
-                this.alertBot.telegram.sendMessage(chatId,`Error in run application: ${`${e}`}`)
+                this.volumeBot.telegram.sendMessage(this.chatId,`Error in run application: ${`${e}`}`)
                 console.log(e)
             }
         })
     }
     
-    sendTelegramSwapMessage = (bot, chatId, tx, swapDetails,tokenPairContract, tokenContractAddress) => {
-        if (tx.to.toLowerCase() == UniswapV3Router2) {
-            this.alertBot.telegram.sendMessage(chatId, 
+    sendTelegramSwapMessage = (tx, swapDetails, tokenPairContract, tokenContractAddress) => {
+        
+            this.volumeBot.telegram.sendMessage(this.chatId, 
     `New Transaction from \`${tx.from}\`! 
 TX HASH: https://etherscan.io/tx/${tx.transactionHash}
 
 Details: 
-${swapDetails.received.length ? `Sent: ${swapDetails.sent.amount} ${swapDetails.sent?.symbol}` : ``}
+${swapDetails.sent ? `Sent: ${swapDetails.sent?.amount} ${swapDetails.sent?.symbol}` : ``}
 
-${swapDetails.received.length ? `Received: ${swapDetails.received?.amount} ${swapDetails.received?.symbol}` : ``}
-${tokenPairContract.length ? `Dextools: https://dextools.io/app/ether/pair-explorer/${tokenPairContract}` : ``}
+${swapDetails.received ? `Received: ${swapDetails.received?.amount} ${swapDetails.received?.symbol}` : ``}
+${tokenPairContract ? `Dextools: https://dextools.io/app/ether/pair-explorer/${tokenPairContract}` : ``}
 
-${tokenPairContract.length ? `Contract Address: https://etherscan.io/token/${tokenContractAddress}` : ``}
+${tokenPairContract ? `Contract Address: https://etherscan.io/token/${tokenContractAddress}` : ``}
 Wallet Link: https://etherscan.io/address/${tx.from}
         
             
             
             `)
-        } else if (tx.to == OneInchv5Router) {
-            this.alertBot.telegram.sendMessage(chatId, `New 1Inchv5 Transaction from ${tx.from}!
-            https://etherscan.io/tx/${tx.transactionHash}`)
-        } 
-        else if (tx.to == KyberSwap) {
-            this.alertBot.telegram.sendMessage(chatId, `New KyberSwap Transaction from ${tx.from}
-            https://etherscan.io/tx/${tx.transactionhash}`)
-        } else {
-            this.alertBot.telegram.sendMessage(chatId, `New Transaction from ${tx.from}!
-            https://etherscan.io/tx/${tx.transactionhash}
+        // } else if (tx.to == OneInchv5Router) {
+        //     this.alertBot.telegram.sendMessage(this.chatId, `New 1Inchv5 Transaction from ${tx.from}!
+        //     https://etherscan.io/tx/${tx.transactionHash}`)
+        // } 
+        // else if (tx.to == KyberSwap) {
+        //     this.alertBot.telegram.sendMessage(this.chatId, `New KyberSwap Transaction from ${tx.from}
+        //     https://etherscan.io/tx/${tx.transactionhash}`)
+        // } else {
+        //     this.alertBot.telegram.sendMessage(this.chatId, `New Transaction from ${tx.from}!
+        //     https://etherscan.io/tx/${tx.transactionhash}
             
-            Tx Input: ${tx.input}
+        //     Tx Input: ${tx.input}
             
             
             
-            `)
-        }
+        //     `)
+        // }
     }
     
 
