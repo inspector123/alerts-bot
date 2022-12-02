@@ -64,6 +64,7 @@ export class Watcher {
     web3Http;
     running = false;
     volumeRunning = false;
+    interrupt = false;
 
     
     constructor(chatId, wallets, alertBotKey, volumeBotKey, testnet) {
@@ -88,7 +89,16 @@ export class Watcher {
     }
 
     startBots = async () => {
-
+        this.volumeBot.command('chatId', ctx=>this.volumeBot.telegram.sendMessage(ctx.chat.id, `Chat Id is ${ctx.chat.id}`))
+        
+        this.volumeBot.command('interrupt', ()=>{
+            this.volumeBot.telegram.sendMessage(this.chatId, `Attempting to interrupt...`)
+            this.interrupt = true;
+        })
+        this.volumeBot.command('restart', ()=>{
+            this.volumeBot.telegram.sendMessage(this.chatId, `Attempting to restart...`)
+            this.interrupt = false;
+        })
         this.alertBot.command('start', ctx => {
             this.alertBot.telegram.sendMessage(this.chatId, `Welcome. Hit /runAlertBot to begin.`, {
             })
@@ -115,10 +125,11 @@ export class Watcher {
         })
 
         this.volumeBot.command('v', async ()=>{
-            if (!this.volumeRunning) {
+            if (!this.volumeRunning && !this.interrupt) {
                 this.volumeBot.telegram.sendMessage(this.chatId, `running volume check`)
                 this.volumeRunning = true
-                console.log(await this.volumeLookBack(1))
+                this.runVolumeCheck(5)
+                
                 
             }
             else {
@@ -130,6 +141,10 @@ export class Watcher {
         this.volumeBot.launch();
     }
 
+    async runVolumeCheck(num) {
+        await this.volumeLookBack(num).then(r=>console.log(r))
+    }
+    
     
     async volumeLookBack(blocks) {
         let latestBlock = await this.web3Http.eth.getBlockNumber();
@@ -140,30 +155,23 @@ export class Watcher {
             if (block) {
                 let { transactions } = block;
                 let blockDetails = []
-                transactions = [
-                    '0x6e7291f3270074f030b7ed6c831d78097c73e0c8785f474be0ea4600ec6cd028', 
-                    "0xb76d3c3e4aeb2bb399be4a4510c28a60ed9b453b009d404ab07e05fb4afd5dda",
-                    "0x15561e64745c81d4c5927044373027117219eab3e5ce78261144027a32c1e8d4",
-                    "0x8544eac09dc26ab8eddf524d2cf5b6ed8c64d5c5fd9c9fea411bbf528d516d38",
-                    "0x3a0fed98c8e96c6c41cb13a51cc8b5faa5dddefd0d7e3fa913d66f5bcbe39c9b",
-                    "0x57e36692a244acb165b0993dcbc085f536931c26834829dcc14319c4fb5b68df",
-                    "0x6e9c18fcc16b5282ba040631edfffd0a5c688467a83175c8eb4910be4d841481",
-                    "0xb91b9492fa90f73bfebf48a89bc8467091f97953dec954d587946d642259c8c2"
-                    
-                ]
-                
                 const _block = await Promise.all(transactions.map(async (txHash, index) => {
-                    let block = []
+                    let block = [];
                     const asdf = await new Promise(resolve => {
-                        setTimeout(resolve, index*50);
+                        setTimeout(resolve, index*20);
                       }).then(async ()=>{
-                        const result = await this.decodeLogs(txHash, true)
-                        block.push(result)
+                        const result = await this.decodeLogs(txHash, true).then(r=>{
+                            if (r && r.sent && r.received) {
+                               // console.log(r)
+                                block.push(r)
+                            }
+                        })
                     });
                     //console.log(block_details);
                     return block
                 }))
-                details.push(_block)
+                const swaps = _block.filter(r=>r.length)
+                details.push({ swapCount: swaps.length, swaps })
             }
         }
         return details
@@ -173,12 +181,11 @@ export class Watcher {
     async decodeLogs(txHash, restrictToSwaps) {
         try {
             let tx = await this.web3Http.eth.getTransactionReceipt(txHash);
-            if (tx != null) {
-                console.log(txHash, 'txHash')
+            if (tx != null && tx.to != null) {
                 let { from, hash, to } = tx;
                 if (restrictToSwaps && ![UniswapV2,UniswapV3Router2,OneInchv5Router,KyberSwap].includes(tx.to.toLowerCase()) )  {
-                    console.log(`The following transaction was ignored: ${txHash}. Reason: not a swap`)
-                    console.log(`Tx.to: ${tx.to.toLowerCase()}`)
+                    // console.log(`The following transaction was ignored: ${txHash}. Reason: not a swap`)
+                    // console.log(`Tx.to: ${tx.to.toLowerCase()}`)
                     return;
                 }
                     
@@ -308,23 +315,23 @@ export class Watcher {
                     //"0x6e9c18fcc16b5282ba040631edfffd0a5c688467a83175c8eb4910be4d841481",
                     //kyberswap eth to chz
                     //"0xb91b9492fa90f73bfebf48a89bc8467091f97953dec954d587946d642259c8c2",
-                    transactions = [
-//                        '0x6e7291f3270074f030b7ed6c831d78097c73e0c8785f474be0ea4600ec6cd028', 
-//                    "0xb76d3c3e4aeb2bb399be4a4510c28a60ed9b453b009d404ab07e05fb4afd5dda",
-//                     "0x15561e64745c81d4c5927044373027117219eab3e5ce78261144027a32c1e8d4",
-// "0x8544eac09dc26ab8eddf524d2cf5b6ed8c64d5c5fd9c9fea411bbf528d516d38",
-// "0x3a0fed98c8e96c6c41cb13a51cc8b5faa5dddefd0d7e3fa913d66f5bcbe39c9b",
-// "0x57e36692a244acb165b0993dcbc085f536931c26834829dcc14319c4fb5b68df",
-// "0x6e9c18fcc16b5282ba040631edfffd0a5c688467a83175c8eb4910be4d841481",
-"0xb91b9492fa90f73bfebf48a89bc8467091f97953dec954d587946d642259c8c2"
+//                     transactions = [
+// //                        '0x6e7291f3270074f030b7ed6c831d78097c73e0c8785f474be0ea4600ec6cd028', 
+// //                    "0xb76d3c3e4aeb2bb399be4a4510c28a60ed9b453b009d404ab07e05fb4afd5dda",
+// //                     "0x15561e64745c81d4c5927044373027117219eab3e5ce78261144027a32c1e8d4",
+// // "0x8544eac09dc26ab8eddf524d2cf5b6ed8c64d5c5fd9c9fea411bbf528d516d38",
+// // "0x3a0fed98c8e96c6c41cb13a51cc8b5faa5dddefd0d7e3fa913d66f5bcbe39c9b",
+// // "0x57e36692a244acb165b0993dcbc085f536931c26834829dcc14319c4fb5b68df",
+// // "0x6e9c18fcc16b5282ba040631edfffd0a5c688467a83175c8eb4910be4d841481",
+// "0xb91b9492fa90f73bfebf48a89bc8467091f97953dec954d587946d642259c8c2"
                     
-                ]
+//                 ]
                     transactions.forEach(async (txHash, index) => {
                         setTimeout(async ()=>{
                             let result =  await this.decodeLogs(txHash, restrictToSwaps)
                             console.log(result)
                             
-                        }, index*50)
+                        }, index*15)
                         
                     })
                 }
