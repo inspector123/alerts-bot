@@ -47,7 +47,7 @@ const OneInchv5Router = '0x1111111254eeb25477b68fb85ed929f73a960582'
 const KyberSwap = '0x617dee16b86534a5d792a4d7a62fb491b544111e'
 const apiKey = `3UNWDPMM65ARUPABPKM9MQXEAM3MYAATN6`;
 const WETHAddress = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".toLowerCase()
-const UniswapV2 = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+const UniswapV2 = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D".toLowerCase()
 const WETHRopsten = "0xc778417E063141139Fce010982780140Aa0cD5Ab"
 
 export class Watcher {
@@ -58,10 +58,13 @@ export class Watcher {
     volumeBot;
     testnet;
     wssProvider;
-    httpProvider
+    httpProvider;
+    archiveProvider;
+    web3Archive;
     web3ws;
     web3Http;
     running = false;
+    volumeRunning = false;
 
     
     constructor(chatId, wallets, alertBotKey, volumeBotKey, testnet) {
@@ -73,12 +76,15 @@ export class Watcher {
         if (testnet) {
             this.wssProvider = ZmokRpc.Goerli.Wss;
             this.httpProvider = ZmokRpc.Goerli.Http;
+            this.archiveProvider = ZmokRpc.MainnetArchive.Ropsten;
         } else {
             this.wssProvider = ZmokRpc.Mainnet.Wss;
             this.httpProvider = ZmokRpc.Mainnet.Http;
+            this.archiveProvider = ZmokRpc.MainnetArchive.Http;
         }
         this.web3ws = new Web3(new Web3.providers.WebsocketProvider(this.wssProvider));
         this.web3Http = new Web3(new Web3.providers.HttpProvider(this.httpProvider));
+        this.web3Archive = new Web3(new Web3.providers.HttpProvider(this.archiveProvider));
 
     }
 
@@ -101,11 +107,21 @@ export class Watcher {
         this.volumeBot.command('r', ctx=>{
             if (!this.running) {
                 this.volumeBot.telegram.sendMessage(this.chatId, `Running`)
-                this.runBlockCheck()
+                this.runBlockCheck(true)
                 this.running = true
             } else {
                 this.volumeBot.telegram.sendMessage(this.chatId, `Already running.`)
 
+            }
+        })
+
+        this.volumeBot.command('v', ()=>{
+            if (!this.volumeRunning) {
+                this.volumeBot.telegram.sendMessage(this.chatId, `running volume check`)
+                this.volumeRunning = true
+            }
+            else {
+                this.volumeBot.telegram.sendMessage(this.chatId, `already running volume check`)
             }
         })
 
@@ -114,15 +130,49 @@ export class Watcher {
     }
 
     
+    async volumeLookBack(blocks) {
+        let latestBlock = await this.web3Http.eth.getBlockNumber();
+        for (let i = 0; i < blocks; i++) {
+            let block = await this.web3Http.eth.getBlock(latestBlock - i);
+            if (block) {
+                let { transactions } = block;
+                _transactions = transactions;
+                
+                transactions = [
+            '0x6e7291f3270074f030b7ed6c831d78097c73e0c8785f474be0ea4600ec6cd028', 
+            "0xb76d3c3e4aeb2bb399be4a4510c28a60ed9b453b009d404ab07e05fb4afd5dda",
+            "0x15561e64745c81d4c5927044373027117219eab3e5ce78261144027a32c1e8d4",
+            "0x8544eac09dc26ab8eddf524d2cf5b6ed8c64d5c5fd9c9fea411bbf528d516d38",
+            "0x3a0fed98c8e96c6c41cb13a51cc8b5faa5dddefd0d7e3fa913d66f5bcbe39c9b",
+            "0x57e36692a244acb165b0993dcbc085f536931c26834829dcc14319c4fb5b68df",
+            "0x6e9c18fcc16b5282ba040631edfffd0a5c688467a83175c8eb4910be4d841481",
+            "0xb91b9492fa90f73bfebf48a89bc8467091f97953dec954d587946d642259c8c2"
+                
+            ]
+                transactions.forEach(async (txHash, index) => {
+                    setTimeout(async ()=>{
+                        details.push(this.decodeLogs(txHash, true))
+                        
+                        
+                    }, index*50)
+                    
+                })
+            }
+        }
+    }
 
 
-
-    async decodeLogs(txHash) {
+    async decodeLogs(txHash, restrictToSwaps) {
         try {
             let tx = await this.web3Http.eth.getTransactionReceipt(txHash);
             if (tx != null) {
-                
+                console.log(txHash, 'txHash')
                 let { from, hash, to } = tx;
+                if (restrictToSwaps && ![UniswapV2,UniswapV3Router2,OneInchv5Router,KyberSwap].includes(tx.to.toLowerCase()) )  {
+                    console.log(`The following transaction was ignored: ${txHash}. Reason: not a swap`)
+                    console.log(`Tx.to: ${tx.to.toLowerCase()}`)
+                    return;
+                }
                     
                 if (tx.logs) {
                     const swaps = []
@@ -147,9 +197,13 @@ export class Watcher {
                     }).map(async log=> {
                         const contract = new this.web3Http.eth.Contract(tokenABI, log.address)
                         const symbol = await contract.methods.symbol().call();
+                        console.log(symbol)
+                        const pairContract = (symbol != "USDC" && symbol != "WETH" && symbol != "USDT") ? await contract.methods.uniswapV2Pair().call() : ""
+
                         return {
-                            contract,
+                            address: contract.options.address,
                             symbol,
+                            pairContract,
                             amount: new BigNumber(this.web3Http.utils.hexToNumberString(log.data)) / 10**(await contract.methods.decimals().call())
                                 }
                     }))
@@ -158,8 +212,11 @@ export class Watcher {
                     }).map(async log=> {
                         const contract = new this.web3Http.eth.Contract(tokenABI, log.address)
                         const symbol = await contract.methods.symbol().call();
+                        console.log(symbol)
+                        const pairContract = (symbol != "USDC" && symbol != "WETH" && symbol != "USDT")? await contract.methods.uniswapV2Pair().call() : ""
                         return {
-                            contract,
+                            address: contract.options.address,
+                            pairContract,
                             symbol,
                             amount: new BigNumber(this.web3Http.utils.hexToNumberString(log.data)) / 10**(await contract.methods.decimals().call())
                             }
@@ -180,7 +237,8 @@ export class Watcher {
                     //     }
                     // }
                     
-                    this.sendTelegramSwapMessage(tx,swapDetails, tokenPairContract, tokenContractAddress)
+                    //this.sendTelegramSwapMessage(tx,swapDetails, tokenPairContract, tokenContractAddress)
+                    return swapDetails
                 }
             }
         } catch(e) {
@@ -196,7 +254,7 @@ export class Watcher {
 
     }
 
-    runBlockCheck () {
+    runBlockCheck (restrictToSwaps) {
 
         
         const subscriptionNewBlockHeaders = this.web3ws.eth.subscribe('newBlockHeaders', (err, res) => {
@@ -241,21 +299,20 @@ export class Watcher {
                     //kyberswap eth to chz
                     //"0xb91b9492fa90f73bfebf48a89bc8467091f97953dec954d587946d642259c8c2",
                     transactions = [
-//                         '0x6e7291f3270074f030b7ed6c831d78097c73e0c8785f474be0ea4600ec6cd028', 
-//                     "0xb76d3c3e4aeb2bb399be4a4510c28a60ed9b453b009d404ab07e05fb4afd5dda",
-//                     "0x15561e64745c81d4c5927044373027117219eab3e5ce78261144027a32c1e8d4",
-// "0x8544eac09dc26ab8eddf524d2cf5b6ed8c64d5c5fd9c9fea411bbf528d516d38",
+                       // '0x6e7291f3270074f030b7ed6c831d78097c73e0c8785f474be0ea4600ec6cd028', 
+                   // "0xb76d3c3e4aeb2bb399be4a4510c28a60ed9b453b009d404ab07e05fb4afd5dda",
+                    // "0x15561e64745c81d4c5927044373027117219eab3e5ce78261144027a32c1e8d4",
+"0x8544eac09dc26ab8eddf524d2cf5b6ed8c64d5c5fd9c9fea411bbf528d516d38",
 // "0x3a0fed98c8e96c6c41cb13a51cc8b5faa5dddefd0d7e3fa913d66f5bcbe39c9b",
 // "0x57e36692a244acb165b0993dcbc085f536931c26834829dcc14319c4fb5b68df",
-"0x6e9c18fcc16b5282ba040631edfffd0a5c688467a83175c8eb4910be4d841481",
-"0xb91b9492fa90f73bfebf48a89bc8467091f97953dec954d587946d642259c8c2"
+// "0x6e9c18fcc16b5282ba040631edfffd0a5c688467a83175c8eb4910be4d841481",
+// "0xb91b9492fa90f73bfebf48a89bc8467091f97953dec954d587946d642259c8c2"
                     
                 ]
                     transactions.forEach(async (txHash, index) => {
                         setTimeout(async ()=>{
-
-                            this.decodeLogs(txHash)
-                            
+                            let result =  await this.decodeLogs(txHash, restrictToSwaps)
+                            console.log(result)
                             
                         }, index*50)
                         
@@ -263,7 +320,7 @@ export class Watcher {
                 }
             }
             catch(e) {
-                this.volumeBot.telegram.sendMessage(this.chatId,`Error in run application: ${`${e}`}`)
+                this.alertBot.telegram.sendMessage(this.chatId,`Error in run application: ${`${e}`}`)
                 console.log(e)
             }
         })
@@ -271,7 +328,7 @@ export class Watcher {
     // SHOULD HAVE SENT TO, RECEIVED FROM
     sendTelegramSwapMessage = (tx, swapDetails, tokenPairContract, tokenContractAddress) => {
         
-            this.volumeBot.telegram.sendMessage(this.chatId, 
+            this.alertBot.telegram.sendMessage(this.chatId, 
     `New Transaction from \`\`\`${tx.from}\`\`\`! 
 TX HASH: https://etherscan.io/tx/${tx.transactionHash}
 Details: 
