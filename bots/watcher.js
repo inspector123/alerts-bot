@@ -184,7 +184,12 @@ export class Watcher {
                     .filter(log=>{
                         // log.topics.includes(from) ||  && 
                         return (
-                            ((log.topics.includes(from) && !log.topics.includes(tx.to)) || (log.address.toLowerCase() == WETHAddress && log.topics.includes(tx.to))) &&
+                            ((log.topics.includes(from) && !log.topics.includes(tx.to)) 
+                            || (log.address.toLowerCase() == WETHAddress 
+                                && log.topics.includes(tx.to)
+                                )
+                            || (tx.to == KyberSwap && log.address.toLowerCase() == WETHAddress)
+                            ) &&
                             log.topics.length == 3 &&
                         //exclude fee
                             !log.topics.includes(log.address)
@@ -192,18 +197,16 @@ export class Watcher {
                     });
 
                                         
-                    const swapSend = await Promise.all(swapPairUserLogs.filter(log=>{
-                        return log.topics[1] == tx.from || (log.address == WETHAddress && log.topics[1] == tx.to)
+                    const swapSend = await Promise.all(swapPairUserLogs.filter((log, index)=>{
+                        return log.topics[1] == tx.from || (log.address == WETHAddress && log.topics[1] == tx.to) || 
+                        (tx.to == KyberSwap && log.address == WETHAddress && index == 0);
                     }).map(async log=> {
                         const contract = new this.web3Http.eth.Contract(tokenABI, log.address)
                         const symbol = await contract.methods.symbol().call();
-                        console.log(symbol)
-                        const pairContract = (symbol != "USDC" && symbol != "WETH" && symbol != "USDT") ? await contract.methods.uniswapV2Pair().call() : ""
-
+                        
                         return {
                             address: contract.options.address,
                             symbol,
-                            pairContract,
                             amount: new BigNumber(this.web3Http.utils.hexToNumberString(log.data)) / 10**(await contract.methods.decimals().call())
                                 }
                     }))
@@ -213,14 +216,14 @@ export class Watcher {
                         const contract = new this.web3Http.eth.Contract(tokenABI, log.address)
                         const symbol = await contract.methods.symbol().call();
                         console.log(symbol)
-                        const pairContract = (symbol != "USDC" && symbol != "WETH" && symbol != "USDT")? await contract.methods.uniswapV2Pair().call() : ""
+                        symbol == 'UNI-V2' ? console.log(log) : null;
                         return {
                             address: contract.options.address,
-                            pairContract,
                             symbol,
                             amount: new BigNumber(this.web3Http.utils.hexToNumberString(log.data)) / 10**(await contract.methods.decimals().call())
                             }
                     }))
+                    console.log(swapReceive)
                     const swapDetails = swapSend && swapReceive ? {sent: swapSend[0], received: swapReceive[0]}: []
                     console.log(tx.from, swapDetails)
                     let tokenPairContract, tokenContractAddress;
@@ -299,14 +302,14 @@ export class Watcher {
                     //kyberswap eth to chz
                     //"0xb91b9492fa90f73bfebf48a89bc8467091f97953dec954d587946d642259c8c2",
                     transactions = [
-                       // '0x6e7291f3270074f030b7ed6c831d78097c73e0c8785f474be0ea4600ec6cd028', 
-                   // "0xb76d3c3e4aeb2bb399be4a4510c28a60ed9b453b009d404ab07e05fb4afd5dda",
-                    // "0x15561e64745c81d4c5927044373027117219eab3e5ce78261144027a32c1e8d4",
-"0x8544eac09dc26ab8eddf524d2cf5b6ed8c64d5c5fd9c9fea411bbf528d516d38",
+//                        '0x6e7291f3270074f030b7ed6c831d78097c73e0c8785f474be0ea4600ec6cd028', 
+//                    "0xb76d3c3e4aeb2bb399be4a4510c28a60ed9b453b009d404ab07e05fb4afd5dda",
+//                     "0x15561e64745c81d4c5927044373027117219eab3e5ce78261144027a32c1e8d4",
+// "0x8544eac09dc26ab8eddf524d2cf5b6ed8c64d5c5fd9c9fea411bbf528d516d38",
 // "0x3a0fed98c8e96c6c41cb13a51cc8b5faa5dddefd0d7e3fa913d66f5bcbe39c9b",
 // "0x57e36692a244acb165b0993dcbc085f536931c26834829dcc14319c4fb5b68df",
 // "0x6e9c18fcc16b5282ba040631edfffd0a5c688467a83175c8eb4910be4d841481",
-// "0xb91b9492fa90f73bfebf48a89bc8467091f97953dec954d587946d642259c8c2"
+"0xb91b9492fa90f73bfebf48a89bc8467091f97953dec954d587946d642259c8c2"
                     
                 ]
                     transactions.forEach(async (txHash, index) => {
