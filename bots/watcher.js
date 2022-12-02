@@ -126,6 +126,7 @@ export class Watcher {
 
         this.volumeBot.command('v', async ()=>{
             if (!this.volumeRunning && !this.interrupt) {
+                console.log('running volume')
                 this.volumeBot.telegram.sendMessage(this.chatId, `running volume check`)
                 this.volumeRunning = true
                 this.runVolumeCheck(5)
