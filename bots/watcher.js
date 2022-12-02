@@ -30,7 +30,6 @@ import { Telegraf } from 'telegraf';
 import Web3 from 'web3';
 import { run } from './alerts/watch.js';
 import wallets from './wallets.js'
-import { setTimeout } from 'timers/promises';
 
 const ZmokRpc = {
     MainnetArchive: {Http:'http://api.zmok.io/archive/ddrxnhgtnvivsmkj',Wss:"", Https:'https://api.zmok.io/archive/ddrxnhgtnvivsmkj'},
@@ -119,7 +118,8 @@ export class Watcher {
             if (!this.volumeRunning) {
                 this.volumeBot.telegram.sendMessage(this.chatId, `running volume check`)
                 this.volumeRunning = true
-                const test = await this.volumeLookBack(1)
+                console.log(await this.volumeLookBack(1))
+                
             }
             else {
                 this.volumeBot.telegram.sendMessage(this.chatId, `already running volume check`)
@@ -136,34 +136,34 @@ export class Watcher {
         let details = []
         for (let i = 0; i < blocks; i++) {
             let block = await this.web3Http.eth.getBlock(latestBlock - i);
+            // console.log(block)
             if (block) {
                 let { transactions } = block;
-                let block_details = []
+                let blockDetails = []
                 transactions = [
-                '0x6e7291f3270074f030b7ed6c831d78097c73e0c8785f474be0ea4600ec6cd028', 
-                "0xb76d3c3e4aeb2bb399be4a4510c28a60ed9b453b009d404ab07e05fb4afd5dda",
-                "0x15561e64745c81d4c5927044373027117219eab3e5ce78261144027a32c1e8d4",
-                "0x8544eac09dc26ab8eddf524d2cf5b6ed8c64d5c5fd9c9fea411bbf528d516d38",
-                "0x3a0fed98c8e96c6c41cb13a51cc8b5faa5dddefd0d7e3fa913d66f5bcbe39c9b",
-                "0x57e36692a244acb165b0993dcbc085f536931c26834829dcc14319c4fb5b68df",
-                "0x6e9c18fcc16b5282ba040631edfffd0a5c688467a83175c8eb4910be4d841481",
-                "0xb91b9492fa90f73bfebf48a89bc8467091f97953dec954d587946d642259c8c2"
+                    '0x6e7291f3270074f030b7ed6c831d78097c73e0c8785f474be0ea4600ec6cd028', 
+                    "0xb76d3c3e4aeb2bb399be4a4510c28a60ed9b453b009d404ab07e05fb4afd5dda",
+                    "0x15561e64745c81d4c5927044373027117219eab3e5ce78261144027a32c1e8d4",
+                    "0x8544eac09dc26ab8eddf524d2cf5b6ed8c64d5c5fd9c9fea411bbf528d516d38",
+                    "0x3a0fed98c8e96c6c41cb13a51cc8b5faa5dddefd0d7e3fa913d66f5bcbe39c9b",
+                    "0x57e36692a244acb165b0993dcbc085f536931c26834829dcc14319c4fb5b68df",
+                    "0x6e9c18fcc16b5282ba040631edfffd0a5c688467a83175c8eb4910be4d841481",
+                    "0xb91b9492fa90f73bfebf48a89bc8467091f97953dec954d587946d642259c8c2"
                     
                 ]
                 
-                transactions.forEach(async (txHash, index) => {
-                    await setTimeout(async ()=>{
-                        const blah = await this.decodeLogs(txHash, true)
-                        //console.log(blah)
-                        //console.log(blah)
-                        //console.log(details)
-                        block_details.push(blah)
-                    }, index*50)
-                    console.log(block_details)
+                const _block = await Promise.all(transactions.map(async (txHash, index) => {
+                    let block = []
+                    const asdf = await new Promise(resolve => {
+                        setTimeout(resolve, index*50);
+                      }).then(async ()=>{
+                        const result = await this.decodeLogs(txHash, true)
+                        block.push(result)
+                    });
                     //console.log(block_details);
-                    
-                })
-                details.push(block_details)
+                    return block
+                }))
+                details.push(_block)
             }
         }
         return details
