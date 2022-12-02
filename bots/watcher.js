@@ -107,7 +107,7 @@ export class Watcher {
         
         })
         this.volumeBot.command('start', ctx => {
-            this.volumeBot.telegram.sendMessage(this.chatId, `Welcome. Hit /runVolumeBot to begin.`, {
+            this.volumeBot.telegram.sendMessage(this.chatId, `Welcome.`, {
             })
             
             
@@ -124,12 +124,14 @@ export class Watcher {
             }
         })
 
-        this.volumeBot.command('v', async ()=>{
+        this.volumeBot.command('v', async (ctx)=>{
             if (!this.volumeRunning && !this.interrupt) {
                 console.log('running volume')
-                this.volumeBot.telegram.sendMessage(this.chatId, `running volume check`)
+                const blocks = ctx.message.text.slice(3)
+                console.log(blocks[0])
+                this.volumeBot.telegram.sendMessage(this.chatId, `running volume check on last ${blocks} blocks. Time: ${new Date().getTime()/ 1000}`)
                 this.volumeRunning = true
-                this.runVolumeCheck(5)
+                this.runVolumeCheck(blocks)
                 
                 
             }
@@ -143,7 +145,11 @@ export class Watcher {
     }
 
     async runVolumeCheck(num) {
-        await this.volumeLookBack(num).then(r=>console.log(r))
+        await this.volumeLookBack(num).then(r=>{
+            console.log(r)
+            this.volumeBot.telegram.sendMessage(this.chatId, `finished at ${new Date().getTime()/ 1000}`)
+            this.volumeRunning = false
+        })
     }
     
     
@@ -159,7 +165,7 @@ export class Watcher {
                 const _block = await Promise.all(transactions.map(async (txHash, index) => {
                     let block = [];
                     const asdf = await new Promise(resolve => {
-                        setTimeout(resolve, index*20);
+                        setTimeout(resolve, index*25);
                       }).then(async ()=>{
                         const result = await this.decodeLogs(txHash, true).then(r=>{
                             if (r && r.sent && r.received) {
@@ -185,8 +191,6 @@ export class Watcher {
             if (tx != null && tx.to != null) {
                 let { from, hash, to } = tx;
                 if (restrictToSwaps && ![UniswapV2,UniswapV3Router2,OneInchv5Router,KyberSwap].includes(tx.to.toLowerCase()) )  {
-                    // console.log(`The following transaction was ignored: ${txHash}. Reason: not a swap`)
-                    // console.log(`Tx.to: ${tx.to.toLowerCase()}`)
                     return;
                 }
                     
@@ -197,7 +201,6 @@ export class Watcher {
                         return log
                     })
                     .filter(log=>{
-                        // log.topics.includes(from) ||  && 
                         return (
                             ((log.topics.includes(from) && !log.topics.includes(tx.to)) 
                             || (log.address.toLowerCase() == WETHAddress 
