@@ -103,20 +103,18 @@ export class Watcher {
     }
 
     getEtherPrice() {
-        setInterval(()=>{
-                let ABI = {};
+        setInterval(async ()=>{
                 const url = `https://api.etherscan.io/api?module=stats&action=ethprice&&apikey=${apiKey}`;
               
                 await axios.get(url).then((r) => {
                   console.log(r);
                   if (r.data.status !== 0) {
                     if (r.data.message != "NOTOK") {
-                      ABI = JSON.parse(r.data.result);
+                      this.price = JSON.parse(r.data.result);
                     }
                   }
                 });
-                return ABI;
-              }
+                return;
         }
         ,720000)
     }
