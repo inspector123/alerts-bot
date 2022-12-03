@@ -99,7 +99,7 @@ export class Watcher {
         this.web3Http = new Web3(new Web3.providers.HttpProvider(this.httpProvider));
         this.web3Archive = new Web3(new Web3.providers.HttpProvider(this.archiveProvider));
         this.UniV2Factory = new this.web3Http.eth.Contract(UniV2FactoryABI, UniV2FactoryAddress);
-
+        this.getEtherPrice();
     }
 
     getEtherPrice() {
