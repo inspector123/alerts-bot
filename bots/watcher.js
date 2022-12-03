@@ -25,11 +25,13 @@ what if we want to change something in the application on the fly?
 import axios from 'axios'
 import { BigNumber } from 'bignumber.js'
 import { get } from 'http';
+import { type } from 'os';
 import path from 'path'
 import { Telegraf } from 'telegraf';
 import Web3 from 'web3';
 import { run } from './alerts/watch.js';
 import wallets from './wallets.js'
+import * as UniV2FactoryABI from './uniswapFactoryABI.json'
 
 const ZmokRpc = {
     MainnetArchive: {Http:'http://api.zmok.io/archive/ddrxnhgtnvivsmkj',Wss:"", Https:'https://api.zmok.io/archive/ddrxnhgtnvivsmkj'},
@@ -48,6 +50,16 @@ const apiKey = `3UNWDPMM65ARUPABPKM9MQXEAM3MYAATN6`;
 const WETHAddress = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".toLowerCase()
 const UniswapV2 = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D".toLowerCase()
 const WETHRopsten = "0xc778417E063141139Fce010982780140Aa0cD5Ab"
+const UniV2FactoryAddress = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
+
+
+
+/*
+https://api.etherscan.io/api
+   ?module=stats
+   &action=ethprice
+   &apikey=YourApiKeyToken
+*/
 
 export class Watcher {
 
@@ -65,6 +77,7 @@ export class Watcher {
     running = false;
     volumeRunning = false;
     interrupt = false;
+    UniV2Factory;
 
     
     constructor(chatId, wallets, alertBotKey, volumeBotKey, testnet) {
@@ -85,7 +98,27 @@ export class Watcher {
         this.web3ws = new Web3(new Web3.providers.WebsocketProvider(this.wssProvider));
         this.web3Http = new Web3(new Web3.providers.HttpProvider(this.httpProvider));
         this.web3Archive = new Web3(new Web3.providers.HttpProvider(this.archiveProvider));
+        this.UniV2Factory = new this.web3Http.eth.Contract(UniV2FactoryABI, UniV2FactoryAddress);
 
+    }
+
+    getEtherPrice() {
+        setInterval(()=>{
+                let ABI = {};
+                const url = `https://api.etherscan.io/api?module=stats&action=ethprice&&apikey=${apiKey}`;
+              
+                await axios.get(url).then((r) => {
+                  console.log(r);
+                  if (r.data.status !== 0) {
+                    if (r.data.message != "NOTOK") {
+                      ABI = JSON.parse(r.data.result);
+                    }
+                  }
+                });
+                return ABI;
+              }
+        }
+        ,720000)
     }
 
     startBots = async () => {
@@ -246,22 +279,38 @@ export class Watcher {
                     //console.log(swapReceive)
                     const swapDetails = swapSend && swapReceive ? {sent: swapSend[0], received: swapReceive[0]}: []
                    // console.log(tx.from, swapDetails)
-                    let tokenPairContract, tokenContractAddress;
-                    // if (swapDetails.sent && swapDetails.received) {
-                    //     if (swapDetails.sent && ["USDC","USDT","WETH"].includes(swapDetails.sent.symbol)) {
-                    //         tokenPairContract = await swapDetails.received.contract.methods.uniswapV2Pair().call();
-                    //         tokenContractAddress = swapDetails.received.contract.address;
-                    //     }
-                    //     if (swapDetails.received && ["USDC","USDT","WETH"].includes(swapDetails.received.symbol)) {
-                    //         console.log('asdklfj')
-                    //         swapDetails.rec
-                    //         tokenPairContract = await swapDetails.sent.contract.methods.uniswapV2Pair().call();
-                    //         tokenContractAddress = swapDetails.sent.contract.address;
-                    //     }
-                    // }
+                    let type, price;
+                    if (swapDetails.sent && swapDetails.received) {
+
+                        //filter WETH to Stablecoin transfers.
+                        if (["USDC", "USDT", "WETH"].includes(swapDetails.sent.symbol) 
+                            && ["USDC", "USDT", "WETH"].includes(swapDetails.received.symbol) ) {
+                                return {};
+                        }
+
+                        
+
+                        if (swapDetails.sent && ["USDC","USDT","WETH"].includes(swapDetails.sent.symbol)) {
+                            //tokenPairContract = await swapDetails.received.contract.methods.uniswapV2Pair().call();
+                            type = "buy";
+                            price = swapDetails.
+                            tokenContractAddress = swapDetails.received.contract.address;
+                        }
+                        if (swapDetails.received && ["USDC","USDT","WETH"].includes(swapDetails.received.symbol)) {
+                            type = "sell";
+                            //tokenPairContract = await swapDetails.sent.contract.methods.uniswapV2Pair().call();
+                            tokenContractAddress = swapDetails.sent.contract.address;
+                        }
+                        //get pair from API, other
+                        // const pairA = swapDetails.received.contract.
+                        // const pair = this.UniV2Factory.methods.getPair(
+                    }
                     
                     //this.sendTelegramSwapMessage(tx,swapDetails, tokenPairContract, tokenContractAddress)
-                    return swapDetails
+                    const transactionObject = {
+                        type,
+
+                    }
                 }
             }
         } catch(e) {
