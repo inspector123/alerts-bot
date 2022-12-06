@@ -101,6 +101,10 @@ export class Watcher {
         this.UniV2Factory = new this.web3Http.eth.Contract(UniV2FactoryABI, UniV2FactoryAddress);
         this.getEtherPrice();
     }
+    //api
+    {
+        
+    }
 
     getEtherPrice() {
         setInterval(async ()=>{
@@ -116,7 +120,7 @@ export class Watcher {
                 });
                 return;
         }
-        ,720000)
+        ,100000)
     }
 
     startBots = async () => {
