@@ -29,7 +29,7 @@ import conn from '../services/db';
 
    export const getBlock = (req, res, next) => {
     if (!req.params.id) {
-      return next(new AppError("No todo id found", 404));
+      return next(new AppError("No block found", 404));
     }
     conn.query(
       "SELECT * FROM Blocks WHERE blockNumber = ?",
@@ -45,22 +45,6 @@ import conn from '../services/db';
     );
    };
 
-  //  export const updateTodo = (req, res, next) => {
-  //   if (!req.params.id) {
-  //     return next(new AppError("No block id found", 404));
-  //   }
-  //   conn.query(
-  //     "UPDATE block SET status='completed' WHERE id=?",
-  //     [req.params.id],
-  //     function (err, data, fields) {
-  //       if (err) return next(new AppError(err, 500));
-  //       res.status(201).json({
-  //         status: "success",
-  //         message: "todo updated!",
-  //       });
-  //     }
-  //   );
-  //  };
    
 
    export const deleteBlock = (req, res, next) => {
@@ -68,13 +52,13 @@ import conn from '../services/db';
       return next(new AppError("No block id found", 404));
     }
     conn.query(
-      "DELETE FROM Blocks WHERE id=?",
+      "DELETE FROM Blocks WHERE blockNumber=?",
       [req.params.id],
       function (err, fields) {
         if (err) return next(new AppError(err, 500));
         res.status(201).json({
           status: "success",
-          message: "todo deleted!",
+          message: "block deleted!",
         });
       }
     );
