@@ -1,5 +1,5 @@
-const express = require("express");
-const controllers = require("../controllers");
+import express from 'express'
+import * as controllers from '../controllers';
 const router = express.Router();
 
 router.route("/").get(controllers.getAllTodos).post(controllers.createTodo);

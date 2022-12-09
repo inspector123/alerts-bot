@@ -30,4 +30,29 @@ export const Chainstack = {
     //pepebet to usdt
     //0x57e36692a244acb165b0993dcbc085f536931c26834829dcc14319c4fb5b68df
 
+
+
+CREATE TABLE block(id int NOT NULL AUTO_INCREMENT,
+block int NOT NULL,
+symbol varchar(50) NOT NULL,
+decimals varchar(50) NOT NULL,
+contract varchar(50) NOT NULL,
+amount varchar(50) NOT NULL,
+type varchar(50) NOT NULL,
+timestamp varchar(50) NOT NULL,
+PRIMARY KEY (id)
+);
+
+CREATE TABLE Contract(id int NOT NULL AUTO_INCREMENT,
+symbol varchar(50) NOT NULL,
+decimals varchar(50) NOT NULL,
+contract varchar(50) NOT NULL,
+amount varchar(50) NOT NULL,
+age varchar(50) NOT NULL,
+Volume5m varchar(50) NOT NULL,
+volume15m varchar(50) NOT NULL,
+volume1h varchar(50) NOT NULL,
+volume1d varchar(50) NOT NULL,
+PRIMARY KEY (id)
+);
 */
