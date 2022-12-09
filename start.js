@@ -26,4 +26,5 @@ app.listen(PORT, () => {
 const CHAT_ID_CHANNEL = -1001855095247;
 const CHAT_ID_DISCUSSION = -1001882676825;
 
-//const watcher = new Watcher(CHAT_ID_DISCUSSION, wallets, AlertBotKey, VolumeBotKey, false);
+const watcher = new Watcher(CHAT_ID_DISCUSSION, wallets, AlertBotKey, VolumeBotKey, false);
+watcher.testRun();

@@ -1,15 +1,15 @@
 import AppError from '../utils/AppError.js';
 import conn from '../services/db.js';
-// export const getAllTodos = (req, res, next) => {
-//     conn.query("SELECT * FROM block where ", function (err, data, fields) {
-//       if(err) return next(new AppError(err))
-//       res.status(200).json({
-//         status: "success",
-//         length: data?.length,
-//         data: data,
-//       });
-//     });
-//    };
+export const getAllBlocks = (req, res, next) => {
+    conn.query("SELECT * FROM Blocks", function (err, data, fields) {
+      if(err) return next(new AppError(err))
+      res.status(200).json({
+        status: "success",
+        length: data?.length,
+        data: data,
+      });
+    });
+   };
 
    export const createBlock = (req, res, next) => {
     if (!req.body) return next(new AppError("No form data found", 404));

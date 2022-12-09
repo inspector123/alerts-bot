@@ -1,10 +1,10 @@
 import express from 'express'
-import { getBlock, createBlock, deleteBlock } from '../controllers/block.js';
+import { getBlock, getAllBlocks, createBlock, deleteBlock } from '../controllers/block.js';
 import { getAllContracts, getContractByAddress, createContract, deleteContract, updateContract } from '../controllers/contract.js';
 const router = express.Router();
 
 //blocks table
-router.route("/api/blocks")
+router.route("/api/blocks").get(getAllBlocks)
     .post(createBlock);
 
 router.route("/api/blocks/:blockNumber")

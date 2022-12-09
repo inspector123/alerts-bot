@@ -1,28 +1,6 @@
 
-
-
-//what does watcher class need? 
-
-
-//what functions does it run?
-    //block watching function
-    //variety of bot message sending functions
-    //holds wallets, all variables, etc. and can be updated dynamically
-
-/* what is the schematic?
-
-Watcher starts ??
-
-starts eth websocket
-
-when that's called we call the telegram bot and it lets us know something has happened.
-
-
-what if we want to change something in the application on the fly?
-
-*/
-
 import axios from 'axios'
+import api from '../utils/axios.js'
 import { BigNumber } from 'bignumber.js'
 import { Telegraf } from 'telegraf';
 import Web3 from 'web3';
@@ -88,6 +66,10 @@ export class Watcher {
         this.web3Archive = new Web3(new Web3.providers.HttpProvider(this.archiveProvider));
         this.UniV2Factory = new this.web3Http.eth.Contract(UniV2FactoryABI, UniV2FactoryAddress);
         this.getEtherPrice();
+    }
+    async testRun() {
+        const response = await api.get('/api/Blocks');
+        console.log(response)
     }
     //api
 
