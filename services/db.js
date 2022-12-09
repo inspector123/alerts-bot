@@ -7,6 +7,12 @@ const conn = mysql.createConnection({
  database: "eth_swaps"
 });
 
-conn.connect();
+conn.connect(e=>{
+    if (e) console.log(e);
+    else {
+        console.log('successfully connected to db');
+    }
+    return;
+});
 
 export default conn;
