@@ -1,5 +1,5 @@
-import AppError from '../utils/appError';
-import conn from '../services/db';
+import AppError from '../utils/AppError.js';
+import conn from '../services/db.js';
 // export const getAllTodos = (req, res, next) => {
 //     conn.query("SELECT * FROM block where ", function (err, data, fields) {
 //       if(err) return next(new AppError(err))

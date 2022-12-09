@@ -1,6 +1,6 @@
 import express from 'express'
-import { getBlock, updateBlockNumber, createBlock} from '../controllers/block';
-import { getAllContracts, getContractByAddress, createContract, deleteContract, updateContract } from '../controllers/contract';
+import { getBlock, createBlock, deleteBlock } from '../controllers/block.js';
+import { getAllContracts, getContractByAddress, createContract, deleteContract, updateContract } from '../controllers/contract.js';
 const router = express.Router();
 
 //blocks table

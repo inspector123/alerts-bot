@@ -1,9 +1,10 @@
-import mysql from 'mysql';
+import mysql from 'mysql2';
 const conn = mysql.createConnection({
- host: "localhost",
+ host: "192.168.0.178",
+ port: 3306,
  user: "ethDBUser",
  password: "lengthallowopen123A!",
- database: "eth_swaps",
+ database: "eth_swaps"
 });
 
 conn.connect();

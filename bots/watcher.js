@@ -24,14 +24,10 @@ what if we want to change something in the application on the fly?
 
 import axios from 'axios'
 import { BigNumber } from 'bignumber.js'
-import { get } from 'http';
-import { type } from 'os';
-import path from 'path'
 import { Telegraf } from 'telegraf';
 import Web3 from 'web3';
-import { run } from './alerts/watch.js';
 import wallets from './wallets.js'
-import * as UniV2FactoryABI from './uniswapFactoryABI.json'
+import UniV2FactoryABI from './uniswapFactoryABI.json' assert { type: "json" };
 
 const ZmokRpc = {
     MainnetArchive: {Http:'http://api.zmok.io/archive/ddrxnhgtnvivsmkj',Wss:"", Https:'https://api.zmok.io/archive/ddrxnhgtnvivsmkj'},
@@ -52,14 +48,6 @@ const UniswapV2 = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D".toLowerCase()
 const WETHRopsten = "0xc778417E063141139Fce010982780140Aa0cD5Ab"
 const UniV2FactoryAddress = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
 
-
-
-/*
-https://api.etherscan.io/api
-   ?module=stats
-   &action=ethprice
-   &apikey=YourApiKeyToken
-*/
 
 export class Watcher {
 
@@ -176,7 +164,7 @@ export class Watcher {
         this.volumeBot.launch();
     }
 
-    //#region volume bot commands
+
     async volumeLookBack(blocks) {
         let latestBlock = await this.web3Http.eth.getBlockNumber();
         let details = []
@@ -347,44 +335,10 @@ export class Watcher {
                             Current Time: ${new Date(Date.now())}`)
                 const blockNumber = blockHeader.number;
                 let _transactions = [];
-                let block = await this.web3Http.eth.getBlock(blockHeader.number);
+                let block = await this.web3Http.eth.getBlock(blockNumber);
                 if (block) {
                     let { transactions } = block;
                     _transactions = transactions;
-                    //send usdt
-                    //'0x6e7291f3270074f030b7ed6c831d78097c73e0c8785f474be0ea4600ec6cd028'
-                    //receive eth?
-
-                    //                    //weth to pepebet
-                    //0xb76d3c3e4aeb2bb399be4a4510c28a60ed9b453b009d404ab07e05fb4afd5dda
-
-                    //pepebet to weth
-                    //"0x15561e64745c81d4c5927044373027117219eab3e5ce78261144027a32c1e8d4",
-
-                    //usdc to pepebet
-                    //"0x8544eac09dc26ab8eddf524d2cf5b6ed8c64d5c5fd9c9fea411bbf528d516d38",
-
-                    //usdt to pepebet
-                    //"0x3a0fed98c8e96c6c41cb13a51cc8b5faa5dddefd0d7e3fa913d66f5bcbe39c9b",
-
-                    //pepebet to usdt
-                    //"0x57e36692a244acb165b0993dcbc085f536931c26834829dcc14319c4fb5b68df",
-
-                    //1inch agix to weth
-                    //"0x6e9c18fcc16b5282ba040631edfffd0a5c688467a83175c8eb4910be4d841481",
-                    //kyberswap eth to chz
-                    //"0xb91b9492fa90f73bfebf48a89bc8467091f97953dec954d587946d642259c8c2",
-//                     transactions = [
-//                        '0x6e7291f3270074f030b7ed6c831d78097c73e0c8785f474be0ea4600ec6cd028', 
-//                    "0xb76d3c3e4aeb2bb399be4a4510c28a60ed9b453b009d404ab07e05fb4afd5dda",
-//                     "0x15561e64745c81d4c5927044373027117219eab3e5ce78261144027a32c1e8d4",
-// "0x8544eac09dc26ab8eddf524d2cf5b6ed8c64d5c5fd9c9fea411bbf528d516d38",
-// "0x3a0fed98c8e96c6c41cb13a51cc8b5faa5dddefd0d7e3fa913d66f5bcbe39c9b",
-// "0x57e36692a244acb165b0993dcbc085f536931c26834829dcc14319c4fb5b68df",
-// "0x6e9c18fcc16b5282ba040631edfffd0a5c688467a83175c8eb4910be4d841481",
-// "0xb91b9492fa90f73bfebf48a89bc8467091f97953dec954d587946d642259c8c2"
-                    
-//                 ]
                     transactions.forEach(async (txHash, index) => {
                         setTimeout(async ()=>{
                             let result =  await this.decodeLogs(txHash, restrictToSwaps)
@@ -394,6 +348,7 @@ export class Watcher {
                         
                     })
                 }
+                axios.get('http://localhost:3000/')
             }
             catch(e) {
                 this.alertBot.telegram.sendMessage(this.chatId,`Error in run application: ${`${e}`}`)
