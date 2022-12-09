@@ -1,5 +1,6 @@
 import express from 'express'
-import * as controllers from '../controllers';
+import { getBlock, createBlock, deleteBlock } from '../controllers/block';
+import { getContractByAddress, createContract, deleteContract, updateContract } from '../controllers/contract';
 const router = express.Router();
 
 router.route("/").get(controllers.getAllTodos).post(controllers.createTodo);
