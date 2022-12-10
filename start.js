@@ -7,8 +7,10 @@ import AppError from "./utils/AppError.js";
 import errorHandler from "./utils/errorHandler.js";
 const AlertBotKey = '5802732074:AAFOFJTQf97hZyXZvrkLbLcsKGStBQOlw4Y';
 const VolumeBotKey = "5974906041:AAFGovND1cdDX3dPZ3TBgXnweO6Zv89oZAE";
-//
+import bodyParser from 'body-parser'
 const app = express();
+
+app.use(bodyParser.json())
 app.use(router);
 
 app.use(cors());
@@ -27,4 +29,4 @@ const CHAT_ID_CHANNEL = -1001855095247;
 const CHAT_ID_DISCUSSION = -1001882676825;
 
 const watcher = new Watcher(CHAT_ID_DISCUSSION, wallets, AlertBotKey, VolumeBotKey, false);
-watcher.runBlockCheck(true);
+watcher.runVolumeCheck(1)

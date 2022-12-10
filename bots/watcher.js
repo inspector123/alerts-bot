@@ -95,8 +95,8 @@ export class Watcher {
         return;
     }
 
-    intervalGetPrice() {
-        this.getEtherPrice();
+    async intervalGetPrice() {
+        await this.getEtherPrice();
         setInterval(this.getEtherPrice, 60000)
     }
 
@@ -168,7 +168,7 @@ export class Watcher {
                 let allBlockTransactions = []
                 const _block = await Promise.all(transactions.map(async (txHash, index) => {
                     const response = await new Promise(resolve => {
-                        setTimeout(resolve, index*20);
+                        setTimeout(resolve, index*15);
                       }).then(async ()=>{
                         const result = await this.decodeLogs(txHash, true).then(r=>{
                             if (r) {
@@ -190,8 +190,8 @@ export class Watcher {
     async runVolumeCheck(num) {
         const curr = new Date().getTime()/1000
         console.log(`started at ${new Date().getTime()/1000}`)
-        await this.volumeLookBack(num).then(r=>{
-            console.log(r)
+        await this.volumeLookBack(num).then(async r=>{
+            await api.post('/api/blocks', r);
             console.log(`finished at ${new Date().getTime()/ 1000}`)
             const end = new Date().getTime()/ 1000
             console.log(`total time: ${end-curr}`)
@@ -246,7 +246,6 @@ export class Watcher {
                             !log.topics.includes(log.address)
                         )
                     });
-                    console.log(swapPairUserLogs)
                                         
                     const swapSend = (await Promise.all(swapPairUserLogs.filter((log, index)=>{
                         return (log.topics[1] == tx.from && log.address != WETHAddress) || (log.address == WETHAddress && log.topics[1] == tx.to) || 
@@ -296,7 +295,7 @@ export class Watcher {
                             amount: new BigNumber(this.web3Http.utils.hexToNumberString(log.data)) / 10**(decimals)
                             }
                     }))).filter(r=>r != undefined && r.symbol != "WBTC")
-                    console.log(swapSend,swapReceive)
+                    //console.log(swapSend,swapReceive)
                     const swapDetails = swapSend && swapReceive ? {sent: swapSend[0], received: swapReceive[0]}: []
                     let type, price, blockTableObject
                     if (swapDetails.sent && swapDetails.received) {
@@ -311,11 +310,10 @@ export class Watcher {
                             type = "buy";
                             //price = swapDetails.
                             let volume = swapDetails.sent.symbol == 'WETH' ? new BigNumber (swapDetails.sent.amount * this.etherPrice) : swapDetails.sent.amount
-                            console.log(volume)
+                            //console.log(volume)
                             //tokenContractAddress = swapDetails.received.contract.address;
                             blockTableObject = 
                             {
-                                id: 0,
                                 blockNumber: this.web3Http.utils.hexToNumber(tx.blockNumber),
                                 symbol: swapDetails.received.symbol,
                                 decimals: swapDetails.received.decimals,
@@ -323,20 +321,20 @@ export class Watcher {
                                 amount: swapDetails.received.amount,
                                 usdVolume: volume,
                                 timestamp,
-                                type: type
+                                type: type,
+                                txHash: tx.transactionHash
                             }
-                            console.log(blockTableObject)
+                            //console.log(blockTableObject)
 
                             return blockTableObject
                         }
                         if (swapDetails.received && ["USDC","USDT","WETH", "BUSD"].includes(swapDetails.received.symbol)) {
                             type = "sell";
                             //tokenPairContract = await swapDetails.sent.contract.methods.uniswapV2Pair().call();
-                            console.log(swapDetails.received.amount, this.etherPrice)
-                            let volume = swapDetails.received.symbol == 'WETH' ? new BigNumber (swapDetails.received.amount * this.etherPrice) : swapDetails.received.amount
+                            //console.log(swapDetails.received.amount, this.etherPrice)
+                            let volume = swapDetails.received.symbol == 'WETH' ? new BigNumber (swapDetails.received.amount * this.etherPrice) : new BigNumber(swapDetails.received.amount)
                             blockTableObject = 
                             {
-                                id: 0,
                                 blockNumber: this.web3Http.utils.hexToNumber(tx.blockNumber),
                                 symbol: swapDetails.sent.symbol,
                                 decimals: swapDetails.sent.decimals,
@@ -344,19 +342,15 @@ export class Watcher {
                                 amount: swapDetails.sent.amount,
                                 usdVolume: volume,
                                 timestamp,
-                                type: type
+                                type: type,
+                                txHash: tx.transactionHash
                             }
-                            console.log(blockTableObject)
 
                             return blockTableObject
                         }
                         return;
-                        //get pair from API, other
-                        // const pairA = swapDetails.received.contract.
-                        // const pair = this.UniV2Factory.methods.getPair(
                     } else return;
                     
-                    //this.sendTelegramSwapMessage(tx,swapDetails, tokenPairContract, tokenContractAddress)
 
                 }
             }
@@ -385,8 +379,7 @@ export class Watcher {
                 let block = await this.web3Http.eth.getBlock(blockNumber);
                 if (block) {
                     let { transactions } = block;
-                    _transactions = transactions;
-                    ["0xaba704f15d9f80e94281571592e15b09b4df1425995f19af23190efd2c9cba30"].forEach(async (txHash, index) => {
+                    transactions.forEach(async (txHash, index) => {
                         setTimeout(async ()=>{
                             let result =  await this.decodeLogs(txHash, restrictToSwaps)
                             
@@ -394,7 +387,6 @@ export class Watcher {
                         
                     })
                 }
-                //axios.get('http://localhost:3000/')
             }
             catch(e) {
                 this.alertBot.telegram.sendMessage(this.chatId,`Error in run application: ${`${e}`}`)
