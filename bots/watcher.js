@@ -44,6 +44,7 @@ export class Watcher {
     volumeRunning = false;
     interrupt = false;
     UniV2Factory;
+    etherPrice;
 
     
     constructor(chatId, wallets, alertBotKey, volumeBotKey, testnet) {
@@ -65,29 +66,38 @@ export class Watcher {
         this.web3Http = new Web3(new Web3.providers.HttpProvider(this.httpProvider));
         this.web3Archive = new Web3(new Web3.providers.HttpProvider(this.archiveProvider));
         this.UniV2Factory = new this.web3Http.eth.Contract(UniV2FactoryABI, UniV2FactoryAddress);
-        this.getEtherPrice();
+        //this.getEtherPrice();
+        this.intervalGetPrice();
     }
     async testRun() {
-        const response = await api.get('/api/Blocks');
-        console.log(response)
+        // const response = await api.get('/api/Blocks');
+        // console.log(response)
+        await this.runVolumeCheck(5);
+        
     }
     //api
 
-    getEtherPrice() {
-        setInterval(async ()=>{
-                const url = `https://api.etherscan.io/api?module=stats&action=ethprice&&apikey=${apiKey}`;
-              
-                await axios.get(url).then((r) => {
-                  console.log(r);
-                  if (r.data.status !== 0) {
-                    if (r.data.message != "NOTOK") {
-                      this.price = JSON.parse(r.data.result);
-                    }
-                  }
-                });
-                return;
-        }
-        ,100000)
+    async getEtherPrice() {
+        const url = `https://api.etherscan.io/api?module=stats&action=ethprice&apikey=${apiKey}`;
+        
+        await axios.get(url).then((r) => {
+            if (r.data.status !== 0) {
+                if (r.data.message != "NOTOK") {
+                    console.log('Current Price of Ether: $', r.data.result.ethusd)
+                    this.etherPrice = parseInt(r.data.result.ethusd)
+                    return;
+                } else {
+                    console.log('Error getting price')
+                    return;
+                }
+            } 
+        });
+        return;
+    }
+
+    intervalGetPrice() {
+        this.getEtherPrice();
+        setInterval(this.getEtherPrice, 60000)
     }
 
     startBots = async () => {
@@ -155,24 +165,22 @@ export class Watcher {
             // console.log(block)
             if (block) {
                 let { transactions } = block;
-                let blockDetails = []
+                let allBlockTransactions = []
                 const _block = await Promise.all(transactions.map(async (txHash, index) => {
-                    let block = [];
-                    const asdf = await new Promise(resolve => {
-                        setTimeout(resolve, index*25);
+                    const response = await new Promise(resolve => {
+                        setTimeout(resolve, index*20);
                       }).then(async ()=>{
                         const result = await this.decodeLogs(txHash, true).then(r=>{
-                            if (r && r.sent && r.received) {
-                               // console.log(r)
-                                block.push(r)
+                            if (r) {
+                                allBlockTransactions.push(r);
                             }
                         })
-                    });
-                    //console.log(block_details);
-                    return block
+                    })
+                    return
                 }))
-                const swaps = _block.filter(r=>r.length)
-                details.push({ swapCount: swaps.length, swaps })
+                //console.log(allBlockTransactions, "all block transactions")
+
+                details = [...details, allBlockTransactions]
             }
         }
         return details
@@ -180,9 +188,13 @@ export class Watcher {
 
 
     async runVolumeCheck(num) {
+        const curr = new Date().getTime()/1000
+        console.log(`started at ${new Date().getTime()/1000}`)
         await this.volumeLookBack(num).then(r=>{
             console.log(r)
-            this.volumeBot.telegram.sendMessage(this.chatId, `finished at ${new Date().getTime()/ 1000}`)
+            console.log(`finished at ${new Date().getTime()/ 1000}`)
+            const end = new Date().getTime()/ 1000
+            console.log(`total time: ${end-curr}`)
             this.volumeRunning = false
         })
     }
@@ -203,15 +215,19 @@ export class Watcher {
     async decodeLogs(txHash, restrictToSwaps) {
         try {
             let tx = await this.web3Http.eth.getTransactionReceipt(txHash);
+            const timestamp = new Date().getTime();
             if (tx != null && tx.to != null) {
                 let { from, hash, to } = tx;
                 if (restrictToSwaps && ![UniswapV2,UniswapV3Router2,OneInchv5Router,KyberSwap].includes(tx.to.toLowerCase()) )  {
-                    if (tx.to == Unicrypt || tx.to == TeamFinance) {
-                        this.decodeLock(tx)
-                    } else return;
+                    // if (tx.to == Unicrypt || tx.to == TeamFinance) {
+                    //     this.decodeLock(tx)
+                    // } else return;
+                    return;
                 }
                     
-                if (tx.logs) {
+                if (tx.logs && tx.logs.length) {
+                    console.log('block number: ', this.web3Http.utils.hexToNumberString(tx.blockNumber))
+                    console.log('transaction hash: ', tx.transactionHash)
                     const swapPairUserLogs = tx.logs.map(log=>{
                         log.address = log.address.toLowerCase();
                         log.topics = log.topics.map(t=>t.replace('0x000000000000000000000000', '0x'));
@@ -230,69 +246,118 @@ export class Watcher {
                             !log.topics.includes(log.address)
                         )
                     });
-
+                    console.log(swapPairUserLogs)
                                         
-                    const swapSend = await Promise.all(swapPairUserLogs.filter((log, index)=>{
-                        return log.topics[1] == tx.from || (log.address == WETHAddress && log.topics[1] == tx.to) || 
+                    const swapSend = (await Promise.all(swapPairUserLogs.filter((log, index)=>{
+                        return (log.topics[1] == tx.from && log.address != WETHAddress) || (log.address == WETHAddress && log.topics[1] == tx.to) || 
                         (tx.to == KyberSwap && log.address == WETHAddress && index == 0);
                     }).map(async log=> {
                         const contract = new this.web3Http.eth.Contract(tokenABI, log.address)
-                        const symbol = await contract.methods.symbol().call();
+                        let decimals, symbol;
+                        //test contract for methods
+                        let isTokenContract;
+                        await contract.methods.decimals().call().then(d=>{
+                            isTokenContract = true
+                            decimals = d;
+                        }).catch(e=>isTokenContract = false)
+                        if (!isTokenContract) {
+                            return;
+                        } 
+                        symbol = await contract.methods.symbol().call();
                         
                         return {
                             address: contract.options.address,
                             symbol,
-                            amount: new BigNumber(this.web3Http.utils.hexToNumberString(log.data)) / 10**(await contract.methods.decimals().call())
+                            decimals,
+                            amount: new BigNumber(this.web3Http.utils.hexToNumberString(log.data)) / 10**(decimals)
                                 }
-                    }))
-                    const swapReceive = await Promise.all(swapPairUserLogs.filter(log=>{
+                    }))).filter(r=>r != undefined)
+                    const swapReceive = (await Promise.all(swapPairUserLogs.filter(log=>{
                         return log.topics[2] == tx.from || (log.address == WETHAddress && log.topics[2] == tx.to)
                     }).map(async log=> {
                         const contract = new this.web3Http.eth.Contract(tokenABI, log.address)
-                        const symbol = await contract.methods.symbol().call();
+                        let decimals, symbol;
+                        //test contract for methods
+                        let isTokenContract;
+                        await contract.methods.decimals().call().then(d=>{
+                            isTokenContract = true
+                            decimals = d;
+                        }).catch(e=>isTokenContract = false)
+                        if (!isTokenContract) {
+                            return;
+                        } 
+                        symbol = await contract.methods.symbol().call();
                        // console.log(symbol)
                         //symbol == 'UNI-V2' ? console.log(log) : null;
                         return {
                             address: contract.options.address,
                             symbol,
-                            amount: new BigNumber(this.web3Http.utils.hexToNumberString(log.data)) / 10**(await contract.methods.decimals().call())
+                            decimals,
+                            amount: new BigNumber(this.web3Http.utils.hexToNumberString(log.data)) / 10**(decimals)
                             }
-                    }))
-                    //console.log(swapReceive)
+                    }))).filter(r=>r != undefined && r.symbol != "WBTC")
+                    console.log(swapSend,swapReceive)
                     const swapDetails = swapSend && swapReceive ? {sent: swapSend[0], received: swapReceive[0]}: []
-                   // console.log(tx.from, swapDetails)
-                    let type, price;
+                    let type, price, blockTableObject
                     if (swapDetails.sent && swapDetails.received) {
 
                         //filter WETH to Stablecoin transfers.
                         if (["USDC", "USDT", "WETH"].includes(swapDetails.sent.symbol) 
                             && ["USDC", "USDT", "WETH"].includes(swapDetails.received.symbol) ) {
-                                return {};
+                                return;
                         }
-
-                        
-
-                        if (swapDetails.sent && ["USDC","USDT","WETH"].includes(swapDetails.sent.symbol)) {
+                        if (swapDetails.sent && ["USDC","USDT","WETH", "BUSD"].includes(swapDetails.sent.symbol)) {
                             //tokenPairContract = await swapDetails.received.contract.methods.uniswapV2Pair().call();
                             type = "buy";
-                            price = swapDetails.
-                            tokenContractAddress = swapDetails.received.contract.address;
+                            //price = swapDetails.
+                            let volume = swapDetails.sent.symbol == 'WETH' ? new BigNumber (swapDetails.sent.amount * this.etherPrice) : swapDetails.sent.amount
+                            console.log(volume)
+                            //tokenContractAddress = swapDetails.received.contract.address;
+                            blockTableObject = 
+                            {
+                                id: 0,
+                                blockNumber: this.web3Http.utils.hexToNumber(tx.blockNumber),
+                                symbol: swapDetails.received.symbol,
+                                decimals: swapDetails.received.decimals,
+                                contractAddress: swapDetails.received.address,
+                                amount: swapDetails.received.amount,
+                                usdVolume: volume,
+                                timestamp,
+                                type: type
+                            }
+                            console.log(blockTableObject)
+
+                            return blockTableObject
                         }
-                        if (swapDetails.received && ["USDC","USDT","WETH"].includes(swapDetails.received.symbol)) {
+                        if (swapDetails.received && ["USDC","USDT","WETH", "BUSD"].includes(swapDetails.received.symbol)) {
                             type = "sell";
                             //tokenPairContract = await swapDetails.sent.contract.methods.uniswapV2Pair().call();
-                            tokenContractAddress = swapDetails.sent.contract.address;
+                            console.log(swapDetails.received.amount, this.etherPrice)
+                            let volume = swapDetails.received.symbol == 'WETH' ? new BigNumber (swapDetails.received.amount * this.etherPrice) : swapDetails.received.amount
+                            blockTableObject = 
+                            {
+                                id: 0,
+                                blockNumber: this.web3Http.utils.hexToNumber(tx.blockNumber),
+                                symbol: swapDetails.sent.symbol,
+                                decimals: swapDetails.sent.decimals,
+                                contractAddress: swapDetails.sent.address,
+                                amount: swapDetails.sent.amount,
+                                usdVolume: volume,
+                                timestamp,
+                                type: type
+                            }
+                            console.log(blockTableObject)
+
+                            return blockTableObject
                         }
+                        return;
                         //get pair from API, other
                         // const pairA = swapDetails.received.contract.
                         // const pair = this.UniV2Factory.methods.getPair(
-                    }
+                    } else return;
                     
                     //this.sendTelegramSwapMessage(tx,swapDetails, tokenPairContract, tokenContractAddress)
-                    const transactionObject = {
-                        type,
 
-                    }
                 }
             }
         } catch(e) {
@@ -321,16 +386,15 @@ export class Watcher {
                 if (block) {
                     let { transactions } = block;
                     _transactions = transactions;
-                    transactions.forEach(async (txHash, index) => {
+                    ["0xaba704f15d9f80e94281571592e15b09b4df1425995f19af23190efd2c9cba30"].forEach(async (txHash, index) => {
                         setTimeout(async ()=>{
                             let result =  await this.decodeLogs(txHash, restrictToSwaps)
-                            console.log(result)
                             
                         }, index*15)
                         
                     })
                 }
-                axios.get('http://localhost:3000/')
+                //axios.get('http://localhost:3000/')
             }
             catch(e) {
                 this.alertBot.telegram.sendMessage(this.chatId,`Error in run application: ${`${e}`}`)
