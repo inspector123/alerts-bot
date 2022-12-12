@@ -4,18 +4,28 @@ import api from '../utils/axios.js'
 import { BigNumber } from 'bignumber.js'
 import { Telegraf } from 'telegraf';
 import wallets from './wallets.js'
-import UniV2FactoryABI from './uniswapFactoryABI.json' assert { type: "json" };
+import UniV2FactoryABI from './abi/uniswapFactoryABI.json' assert { type: "json" };
 import { ethers } from "ethers"
+import USDCABI from "./abi/usdcabi.json" assert { type: "json" };
+import USDTABI from "./abi/usdtabi.json" assert { type: "json" };
+import WETHABI from './abi/wethabi.json' assert { type: "json" };
+import univ3v2ABI from './abi/univ3v2abi.json' assert { type: "json" };
 
+const apiKey = `3UNWDPMM65ARUPABPKM9MQXEAM3MYAATN6`;
 
-const UniswapV3Router2 = '0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45'
+//contracts for log.address filters
+const USDC = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
+const USDT = "0xdAC17F958D2ee523a2206206994597C13D831ec7";
+const WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
+
+//routers
+const UniswapV3Router2 = '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
 const OneInchv5Router = '0x1111111254eeb25477b68fb85ed929f73a960582'
 const KyberSwap = '0x617dee16b86534a5d792a4d7a62fb491b544111e'
-const apiKey = `3UNWDPMM65ARUPABPKM9MQXEAM3MYAATN6`;
-const WETHAddress = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".toLowerCase()
-const UniswapV2 = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D".toLowerCase()
-const WETHRopsten = "0xc778417E063141139Fce010982780140Aa0cD5Ab"
-const UniV2FactoryAddress = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
+const UniswapV2 = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+
+
+
 
 
 export class Watcher {
@@ -38,7 +48,7 @@ export class Watcher {
     etherPrice;
 
     
-    constructor(chatId, wallets, alertBotKey, volumeBotKey, testnet, localNodeUrl) {
+    constructor(chatId, wallets, alertBotKey, volumeBotKey, testnet, httpUrl, wsUrl) {
         this.chatId = chatId;
         this.wallets = wallets;
         this.alertBot = new Telegraf(alertBotKey);
@@ -52,7 +62,8 @@ export class Watcher {
         } else {
 
 
-            const provider = new ethers.providers.JsonRpcProvider("");
+            this.httpProvider = new ethers.providers.JsonRpcProvider(httpUrl);
+            this.wsProvider = new ethers.providers.WebSocketProvider(wsUrl)
             // this.wssProvider = ZmokRpc.Mainnet.Wss;
             // this.httpProvider = ZmokRpc.Mainnet.Http;
             // this.archiveProvider = ZmokRpc.MainnetArchive.Http;
@@ -63,7 +74,7 @@ export class Watcher {
         // this.UniV2Factory = new this.web3Http.eth.Contract(UniV2FactoryABI, UniV2FactoryAddress);
         //this.getEtherPrice();
 
-
+        this.runEthersBlockCheck();
 
         this.intervalGetPrice();
     }
@@ -72,6 +83,125 @@ export class Watcher {
         // console.log(response)
         await this.runVolumeCheck(5);
         
+    }
+
+    async runEthersBlockCheck() {
+        this.httpProvider.on('block', (block)=>{
+            console.log(block, 'asdfjklfsdaklj')
+            
+            // console.log(`
+            // TIMESTAMP: ${blockHeader.timestamp} 
+            // DateTime: ${new Date(blockHeader.timestamp*1000)} --------------------------
+            // Current Time: ${new Date(Date.now())}`
+        })
+
+        const _USDC = new ethers.Contract(USDC, USDCABI, this.httpProvider);
+        const _USDT = new ethers.Contract(USDT, USDTABI, this.httpProvider);
+        const _WETH = new ethers.Contract(WETH, WETHABI, this.httpProvider);
+
+        _WETH.on("Deposit", (address, amount, event) => {
+           // console.log(event)
+            console.log(address)
+            
+        })
+
+        _WETH.on("Withdrawal", (address, amount, event) => {
+            console.log(address)
+            //console.log(event)
+        })
+        // _USDC.on("Transfer", (from, to, amount, event) => {
+        //     // ...
+        //     //console.log(from, to, amount, event)
+        //     //console.log(event)
+        //     if (to == UniswapV3Router2) {
+        //         console.log(event.transactionHash, 'to univ3')
+        //         console.log(event.logs)
+        //     }
+        //     // if (to == 1) {
+        //     //     console.log(event.transactionHash, 'to univ2')
+        //     //     console.log(event.logs)
+        //     // }
+        // });
+
+        // _USDT.on("Transfer", (from, to, amount, event) => {
+        //     // ...
+        //     //console.log(from, to, amount, event)
+        //     //console.log(event)
+        //     if (to == UniswapV3Router2) {
+        //         console.log(event.transactionHash, 'to uni')
+        //         console.log(event)
+        //     }
+        // });
+
+        // const univ3v2 = new ethers.Contract(UniswapV3Router2, univ3v2ABI, this.httpProvider)
+        
+        // univ3v2.on("Multicall", (from, to, amount, event)=> {
+        //     console.log(event)
+        // })
+        // const names = univ3v2ABI.map(m=>{
+        //    return m.name
+        // });
+        // const events = USDCABI.filter(m=>m.type=="event")
+        // console.log(events)
+          
+
+        // const filterUSDC = {
+        //     address: USDC,
+        //     topics: [
+        //         ethers.utils.id("Transfer(address,address,uint256")
+        //     ]
+        // }
+
+        // const filterUSDT = {
+        //     address: USDT,
+        //     topics: [
+        //         ethers.utils.id("Transfer(address,address,uint256")
+        //     ]
+        // }
+
+       
+        // this.httpProvider.on(filterUSDC, (log, event) => {
+        //     console.log('log')
+        //     console.log(log)
+        //     console.log('event')
+        //     console.log(event)
+        // })
+
+        // this.httpProvider.on(filterUSDT, (l, e)=>{
+        //     console.log('asdf')
+        //     console.log(log, event)
+        // })
+
+        // const filterWETHDeposit = {
+        //     address: WETH,
+        //     topics: [
+        //         ethers.utils.id("Deposit(")
+        //     ]
+        // }
+
+        //this.httpProvider.on(filterUSDT)
+
+        //this.httpProvider.filter
+        // this.wsProvider.on('newBlockHeaders', n=> {
+        //     console.log(n, 'ws')
+        // })
+
+        /* Two possible ways:
+
+        web3 way? 
+        every block check transactions for tx.to 
+        against univ3_2
+        then decode function input 
+        then get srcToken and destToken
+
+        except... its multicall..
+         idk.
+
+         option 2? set up filter on transfer.
+
+
+
+        */
     }
     //api
 
@@ -534,19 +664,20 @@ const tokenABI = [
         stateMutability: "view",
         type: "function"
     },
+    "Event Transfer(address,address,uint256)"
 
-    //uniswapV2Pair
-    {
-        inputs: [],
-        name:"uniswapV2Pair",
-        outputs:[{
-            internalType:"address",
-            name:"",
-            type:"address"
-        }],
-        stateMutability:"view",
-        type:"function"
-    }
+    // //uniswapV2Pair
+    // {
+    //     inputs: [],
+    //     name:"uniswapV2Pair",
+    //     outputs:[{
+    //         internalType:"address",
+    //         name:"",
+    //         type:"address"
+    //     }],
+    //     stateMutability:"view",
+    //     type:"function"
+    // }
 ];
 
 // unsubscribeNewBlockHeaders() {
