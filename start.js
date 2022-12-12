@@ -1,4 +1,4 @@
-import { Watcher } from './bots/watcher.js'
+import { Watcher } from './bots/watcher_ethers.js'
 import wallets from "./bots/wallets.js"
 import express from "express"
 import cors from "cors"
@@ -33,7 +33,7 @@ const httpPort = "9535"
 const wssPort = "9536"
 
 const httpUrl = `http://${localNodeIp}:${httpPort}`
-const wssUrl = `wss://${localNodeIp}:${wssPort}`
+const wsUrl = `ws://${localNodeIp}:${wssPort}`
 
-const watcher = new Watcher(CHAT_ID_DISCUSSION, wallets, AlertBotKey, VolumeBotKey, testnetStatus, httpUrl, wssUrl);
-watcher.runVolumeCheck(1)
+const watcher = new Watcher(CHAT_ID_DISCUSSION, wallets, AlertBotKey, VolumeBotKey, testnetStatus, httpUrl, wsUrl);
+//watcher.runVolumeCheck(1)
