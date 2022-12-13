@@ -10,6 +10,8 @@ import USDCABI from "./abi/usdcabi.json" assert { type: "json" };
 import USDTABI from "./abi/usdtabi.json" assert { type: "json" };
 import WETHABI from './abi/wethabi.json' assert { type: "json" };
 import univ3v2ABI from './abi/univ3v2abi.json' assert { type: "json" };
+import tokenABI from './abi/tokenABI.json' assert { type: "json" };
+
 //import { Interface } from 'ethers';
 
 const apiKey = `3UNWDPMM65ARUPABPKM9MQXEAM3MYAATN6`;
@@ -21,9 +23,10 @@ const WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
 
 //routers
 const UniswapV3Router2 = '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
-const OneInchv5Router = '0x1111111254eeb25477b68fb85ed929f73a960582'
+const OneInchv5Router = '0x1111111254EEB25477B68fb85Ed929f73A960582'
 const KyberSwap = '0x617dee16b86534a5d792a4d7a62fb491b544111e'
 const UniswapV2 = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+const SushiSwapRouter = "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"
 
 
 
@@ -46,7 +49,7 @@ export class Watcher {
     volumeRunning = false;
     interrupt = false;
     UniV2Factory;
-    etherPrice;tx
+    etherPrice;
 
     
     constructor(chatId, wallets, alertBotKey, volumeBotKey, testnet, httpUrl, wsUrl) {
@@ -77,7 +80,6 @@ export class Watcher {
 
         this.runEthersBlockCheck();
 
-        this.intervalGetPrice();
     }
     async testRun() {
         // const response = await api.get('/api/Blocks');
@@ -87,6 +89,8 @@ export class Watcher {
     }
 
     async runEthersBlockCheck() {
+
+        await this.intervalGetPrice();
         this.httpProvider.on('block', (block)=>{
             console.log('latest block: ', block)
             
@@ -100,40 +104,99 @@ export class Watcher {
         const _USDT = new ethers.Contract(USDT, USDTABI, this.httpProvider);
         const _WETH = new ethers.Contract(WETH, WETHABI, this.httpProvider);
         const uniInterface =  new utils.Interface(univ3v2ABI);
+        const tokenInterface = new utils.Interface(tokenABI);
 
         _WETH.on("Deposit", async (address, amount, event) => {
-           // console.log(event)
-            // console.log(address)
-            // console.log(event)
             
             //conso
             if (address == UniswapV3Router2) {
-                // console.log(address)
                 const receipt = await event.getTransactionReceipt();
-                // console.log(receipt)
-                //console.log(receipt.from, receipt.to)
-                const matchingReceiveTokenLog = receipt.logs.filter(log=>{
-                    //console.log(log.topics)
-                    return log.topics[2]?.replace('0x000000000000000000000000', '0x') == receipt.from.toLowerCase()
-                            && log.topics[1]?.replace('0x000000000000000000000000', '0x') != receipt.to.toLowerCase();
+                const fixedLogs = receipt.logs.map(log=>{
+                    log.topics = log.topics.map(t=>t.replace('0x000000000000000000000000', '0x'));
+                    return log
                 })
-                console.log(matchingReceiveTokenLog[0].address)
-                const _token = new ethers.Contract(matchingReceiveTokenLog[0].address, tokenABI, this.httpProvider)
-                
+                const matchingReceiveTokenLog = receipt.logs.filter(log=>{
+                    return log.topics[2] == receipt.from.toLowerCase()
+                            && log.topics[1] != receipt.to.toLowerCase();
+                })
+                try { 
+                    const _token = new ethers.Contract(matchingReceiveTokenLog[0].address, tokenABI, this.httpProvider)
+                    let symbol = await _token.symbol();
+                    let decimals =  await _token.decimals();
+                } catch(e) {
+                    console.log(e, receipt.transactionHash, matchingReceiveTokenLog)
+                }
 
             }
-            // let data = tx.data;
-            // let value = tx.value;
-            // //console.log(transaction)
 
-            // console.log(result)
-            //uniInterface.parseTransaction()
+            if (address == OneInchv5Router) {
+                const receipt = await event.getTransactionReceipt();
+                console.log(`1inch`)
+                console.log(receipt.transactionHash)
+
+            }
+
 
         })
 
-        _WETH.on("Withdrawal", (address, amount, event) => {
-            //console.log(address)
-            //console.log(event)
+        _WETH.on("Withdrawal", async (address, amountWETH, event) => {
+
+            //UniV3
+            if (address == UniswapV3Router2) {
+                let _amountWETH = amountWETH / 10**18;
+                const receipt = await event.getTransactionReceipt();
+                const fixedLogs = receipt.logs.map(log=>{
+                    log.topics = log.topics.map(t=>t.replace('0x000000000000000000000000', '0x'));
+                    return log
+                })
+                const matchingSendTokenLog = receipt.logs.filter(log=>{
+                    return log.topics[1] == receipt.from.toLowerCase()
+                        && log.topics[2] != receipt.to.toLowerCase()
+                        //block sends to contract
+                        && log.topics[2] != log.address.toLowerCase();
+                })
+
+                try { 
+                    const _token = new ethers.Contract(matchingSendTokenLog[0].address, tokenABI, this.httpProvider)
+                    let symbol = await _token.symbol();
+                    let decimals =  await _token.decimals();
+                    let amountTokenSent = ethers.BigNumber.from(matchingSendTokenLog[0].data) / 10**(decimals)
+                    const volumeUsd = _amountWETH * this.etherPrice;
+                    const price = _amountWETH / amountTokenSent;
+                } catch(e) {
+                    console.log(e, receipt.transactionHash, matchingSendTokenLog)
+                }
+
+                //console.log(matchingSendTokenLog[0])
+            }
+
+            //1Inch
+            if (address == OneInchv5Router) {
+                const receipt = await event.getTransactionReceipt();
+                console.log(`1inch`)
+                console.log(receipt.transactionHash)
+
+            }
+
+            if (address = SushiSwapRouter)
+
+            // if (address == ) {
+            //     const receipt = await event.getTransactionReceipt();
+            //     console.log(event.logs)
+            //     // const matchingReceiveTokenLog = receipt.logs.filter(log=>{
+            //     //     return log.topics[2]?.replace('0x000000000000000000000000', '0x') == receipt.from.toLowerCase()
+            //     //             && log.topics[1]?.replace('0x000000000000000000000000', '0x') != receipt.to.toLowerCase();
+            //     // })
+            //     // // console.log(matchingReceiveTokenLog)
+            //     // // console.log(matchingReceiveTokenLog[0].address, 'address')
+            //     // console.log(matchingReceiveTokenLog.length, receipt.transactionHash)
+
+            //     // const _token = new ethers.Contract(matchingReceiveTokenLog[0].address, tokenABI, this.httpProvider)
+            //     // let symbol = await _token.symbol();
+            //     // let decimals =  await _token.decimals();
+            //     // console.log(matchingReceiveTokenLog, symbol, decimals)
+
+            // }
         })
 
         
@@ -603,109 +666,6 @@ Wallet Link: https://etherscan.io/address/${tx.from}
 ${tokenPairContract ? `Dextools: https://dextools.io/app/ether/pair-explorer/${tokenPairContract}` : ``}
 ${tokenPairContract ? `Contract Address: https://etherscan.io/token/${tokenContractAddress}` : ``}
 */
-
-
-
-
-const tokenABI = [
-    // balanceOf
-    {
-      constant: true,
-      inputs: [{ name: "_owner", type: "address" }],
-      name: "balanceOf",
-      outputs: [{ name: "balance", type: "uint256" }],
-      type: "function",
-    },
-    {
-        inputs: [{
-            internalType: "address",
-            name: "spender",
-            type: "address"
-        }, {
-            internalType: "uint256",
-            name: "amount",
-            type: "uint256"
-        }],
-        name: "approve",
-        outputs: [{
-            internalType: "bool",
-            name: "",
-            type: "bool"
-        }],
-        stateMutability: "nonpayable",
-        type: "function"
-    },
-    {
-        inputs: [
-          {
-            internalType: "address",
-            name: "owner",
-            type: "address",
-          },
-          {
-            internalType: "address",
-            name: "spender",
-            type: "address",
-          },
-        ],
-        name: "allowance",
-        outputs: [
-          {
-            internalType: "uint256",
-            name: "",
-            type: "uint256",
-          },
-        ],
-        stateMutability: "view",
-        type: "function",
-      },
-    {
-        inputs: [],
-        name: "name",
-        outputs: [{
-            internalType: "string",
-            name: "",
-            type: "string"
-        }],
-        stateMutability: "view",
-        type: "function"
-    },
-    {
-        inputs: [],
-        name: "symbol",
-        outputs: [{
-            internalType: "string",
-            name: "",
-            type: "string"
-        }],
-        stateMutability: "view",
-        type: "function"
-    },
-    {
-        inputs: [],
-        name: "decimals",
-        outputs: [{
-            internalType: "uint256",
-            name: "",
-            type: "uint256"
-        }],
-        stateMutability: "view",
-        type: "function"
-    }
-
-    // //uniswapV2Pair
-    // {
-    //     inputs: [],
-    //     name:"uniswapV2Pair",
-    //     outputs:[{
-    //         internalType:"address",
-    //         name:"",
-    //         type:"address"
-    //     }],
-    //     stateMutability:"view",
-    //     type:"function"
-    // }
-];
 
 // unsubscribeNewBlockHeaders() {
 // subscriptionNewBlockHeaders.unsubscribe((err: Error, success: boolean) => {
