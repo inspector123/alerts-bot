@@ -118,25 +118,6 @@ export class Watcher {
                     i++;
                     console.log(i)
                 }
-
-
-                // const receipt = await event.getTransactionReceipt();
-                // const fixedLogs = receipt.logs.map(log=>{
-                //     log.topics = log.topics.map(t=>t.replace('0x000000000000000000000000', '0x'));
-                //     return log
-                // })
-                // const matchingReceiveTokenLog = receipt.logs.filter(log=>{
-                //     return log.topics[2] == receipt.from.toLowerCase()
-                //             && log.topics[1] != receipt.to.toLowerCase();
-                // })
-                // try { 
-                //     const _token = new ethers.Contract(matchingReceiveTokenLog[0].address, tokenABI, this.httpProvider)
-                //     let symbol = await _token.symbol();
-                //     let decimals =  await _token.decimals();
-                // } catch(e) {
-                //     console.log(e, receipt.transactionHash, matchingReceiveTokenLog)
-                // }
-
             }
 
             if (address == OneInchv5Router) {
@@ -147,26 +128,6 @@ export class Watcher {
                     i++;
                     console.log(i)
                 }
-                // const receipt = await event.getTransactionReceipt();
-                // const fixedLogs = receipt.logs.map(log=>{
-                //     log.topics = log.topics.map(t=>t.replace('0x000000000000000000000000', '0x'));
-                //     return log
-                // })
-                // const matchingReceiveTokenLog = receipt.logs.filter(log=>{
-                //     return log.topics[2] == receipt.from.toLowerCase()
-                //             && log.topics[1] != receipt.to.toLowerCase()
-                //             && log.topics.length == 3;
-
-                // })
-                // try { 
-                    
-                //     const _token = new ethers.Contract(matchingReceiveTokenLog[0].address, tokenABI, this.httpProvider)
-                //     let symbol = await _token.symbol();
-                //     let decimals =  await _token.decimals();
-                // } catch(e) {
-                //     console.log(`1Inch error dp`, e, receipt.transactionHash, matchingReceiveTokenLog)
-                // }
-
 
             }
             if (address == SushiSwapRouter) {
@@ -178,7 +139,6 @@ export class Watcher {
 
         _WETH.on("Withdrawal", async (address, amountWETH, event) => {
 
-            //let _amountWETH = amountWETH / 10**18;
             let properAmountWETH = amountWETH / 10**18;
             //UniV3
             if (address == UniswapV3Router2) {
@@ -190,65 +150,16 @@ export class Watcher {
                     console.log(i)
                 }
 
-
-                // const receipt = await event.getTransactionReceipt();
-                // const fixedLogs = receipt.logs.map(log=>{
-                //     log.topics = log.topics.map(t=>t.replace('0x000000000000000000000000', '0x'));
-                //     return log
-                // })
-                // const matchingSendTokenLog = receipt.logs.filter(log=>{
-                //     return log.topics[1] == receipt.from.toLowerCase()
-                //         && log.topics[2] != receipt.to.toLowerCase()
-                //         //block sends to contract
-                //         && log.topics[2] != log.address.toLowerCase()
-                //         && log.topics.length == 3;
-                // })
-
-                // try { 
-                //     const _token = new ethers.Contract(matchingSendTokenLog[0].address, tokenABI, this.httpProvider)
-                //     let symbol = await _token.symbol();
-                //     let decimals =  await _token.decimals();
-                //     let amountTokenSent = ethers.BigNumber.from(matchingSendTokenLog[0].data) / 10**(decimals)
-                //     const volumeUsd = _amountWETH * this.etherPrice;
-                //     const price = _amountWETH / amountTokenSent;
-                // } catch(e) {
-                //     console.log(`Uni error wd`, receipt.transactionHash, matchingSendTokenLog)
-                // }
-
-                //console.log(matchingSendTokenLog[0])
             }
 
             //1Inch
             if (address == OneInchv5Router) {
 
-                const details = this.parseTokenTransferFromWETHLog(event, false, properAmountWETH);
+                const details = await this.parseTokenTransferFromWETHLog(event, false, properAmountWETH);
                 if (details) {
                     i++;
                     console.log(i)
                 }
-                // const receipt = await event.getTransactionReceipt();
-                // const fixedLogs = receipt.logs.map(log=>{
-                //     log.topics = log.topics.map(t=>t.replace('0x000000000000000000000000', '0x'));
-                //     return log
-                // })
-                // const matchingSendTokenLog = receipt.logs.filter(log=>{
-                //     return log.topics[1] == receipt.from.toLowerCase()
-                //         && log.topics[2] != receipt.to.toLowerCase()
-                //         //block sends to contract
-                //         && log.topics[2] != log.address.toLowerCase();
-                // })
-
-                // try { 
-                //     const _token = new ethers.Contract(matchingSendTokenLog[0].address, tokenABI, this.httpProvider)
-                //     let symbol = await _token.symbol();
-                //     let decimals =  await _token.decimals();
-                //     let amountTokenSent = ethers.BigNumber.from(matchingSendTokenLog[0].data) / 10**(decimals)
-                //     const volumeUsd = _amountWETH * this.etherPrice;
-                //     const price = _amountWETH / amountTokenSent;
-                // } catch(e) {
-                //     console.log(`1incherrorwd`, e, receipt.transactionHash, matchingSendTokenLog)
-                // }
-
 
             }
 
