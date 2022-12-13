@@ -5,11 +5,12 @@ import { BigNumber } from 'bignumber.js'
 import { Telegraf } from 'telegraf';
 import wallets from './wallets.js'
 import UniV2FactoryABI from './abi/uniswapFactoryABI.json' assert { type: "json" };
-import { ethers } from "ethers"
+import { ethers, utils } from "ethers"
 import USDCABI from "./abi/usdcabi.json" assert { type: "json" };
 import USDTABI from "./abi/usdtabi.json" assert { type: "json" };
 import WETHABI from './abi/wethabi.json' assert { type: "json" };
 import univ3v2ABI from './abi/univ3v2abi.json' assert { type: "json" };
+//import { Interface } from 'ethers';
 
 const apiKey = `3UNWDPMM65ARUPABPKM9MQXEAM3MYAATN6`;
 
@@ -45,7 +46,7 @@ export class Watcher {
     volumeRunning = false;
     interrupt = false;
     UniV2Factory;
-    etherPrice;
+    etherPrice;tx
 
     
     constructor(chatId, wallets, alertBotKey, volumeBotKey, testnet, httpUrl, wsUrl) {
@@ -87,7 +88,7 @@ export class Watcher {
 
     async runEthersBlockCheck() {
         this.httpProvider.on('block', (block)=>{
-            console.log(block, 'asdfjklfsdaklj')
+            console.log('latest block: ', block)
             
             // console.log(`
             // TIMESTAMP: ${blockHeader.timestamp} 
@@ -98,17 +99,44 @@ export class Watcher {
         const _USDC = new ethers.Contract(USDC, USDCABI, this.httpProvider);
         const _USDT = new ethers.Contract(USDT, USDTABI, this.httpProvider);
         const _WETH = new ethers.Contract(WETH, WETHABI, this.httpProvider);
+        const uniInterface =  new utils.Interface(univ3v2ABI);
 
-        _WETH.on("Deposit", (address, amount, event) => {
+        _WETH.on("Deposit", async (address, amount, event) => {
            // console.log(event)
-            console.log(address)
+            // console.log(address)
+            // console.log(event)
             
+            //conso
+            if (address == UniswapV3Router2) {
+                // console.log(address)
+                const receipt = await event.getTransactionReceipt();
+                // console.log(receipt)
+                //console.log(receipt.from, receipt.to)
+                const matchingReceiveTokenLog = receipt.logs.filter(log=>{
+                    //console.log(log.topics)
+                    return log.topics[2]?.replace('0x000000000000000000000000', '0x') == receipt.from.toLowerCase()
+                            && log.topics[1]?.replace('0x000000000000000000000000', '0x') != receipt.to.toLowerCase();
+                })
+                console.log(matchingReceiveTokenLog[0].address)
+                const _token = new ethers.Contract(matchingReceiveTokenLog[0].address, tokenABI, this.httpProvider)
+                
+
+            }
+            // let data = tx.data;
+            // let value = tx.value;
+            // //console.log(transaction)
+
+            // console.log(result)
+            //uniInterface.parseTransaction()
+
         })
 
         _WETH.on("Withdrawal", (address, amount, event) => {
-            console.log(address)
+            //console.log(address)
             //console.log(event)
         })
+
+        
         // _USDC.on("Transfer", (from, to, amount, event) => {
         //     // ...
         //     //console.log(from, to, amount, event)
@@ -663,8 +691,7 @@ const tokenABI = [
         }],
         stateMutability: "view",
         type: "function"
-    },
-    "Event Transfer(address,address,uint256)"
+    }
 
     // //uniswapV2Pair
     // {
