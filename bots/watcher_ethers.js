@@ -27,6 +27,7 @@ const OneInchv5Router = '0x1111111254EEB25477B68fb85Ed929f73A960582'
 const KyberSwap = '0x617dee16b86534a5d792a4d7a62fb491b544111e'
 const UniswapV2 = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
 const SushiSwapRouter = "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"
+const KyberSwapInBetweenContract = "0x4Fe5b965E3BD76eFf36280471030ef9b0E6e2C1D"
 
 
 
@@ -50,7 +51,7 @@ export class Watcher {
     interrupt = false;
     UniV2Factory;
     etherPrice;
-
+    currentBlockSwaps = [];
     
     constructor(chatId, wallets, alertBotKey, volumeBotKey, testnet, httpUrl, wsUrl) {
         this.chatId = chatId;
@@ -91,49 +92,32 @@ export class Watcher {
     async runEthersBlockCheck() {
 
         await this.intervalGetPrice();
-        this.httpProvider.on('block', (block)=>{
+        this.httpProvider.on('block', async (block)=>{
             console.log('latest block: ', block)
-            
-            // console.log(`
-            // TIMESTAMP: ${blockHeader.timestamp} 
-            // DateTime: ${new Date(blockHeader.timestamp*1000)} --------------------------
-            // Current Time: ${new Date(Date.now())}`
-        })
+            this.currentBlock = block;
+            if (this.currentBlockSwaps.length) {
+                //console.log(this.currentBlockSwaps);
+                const response = await api.post(`/api/blocks`, this.currentBlockSwaps).then(r=>console.log(r.status)).catch(e=>console.error(e));
+                this.currentBlockSwaps = [];
+            }
 
-        const _USDC = new ethers.Contract(USDC, USDCABI, this.httpProvider);
-        const _USDT = new ethers.Contract(USDT, USDTABI, this.httpProvider);
+
+
+            //as soon as new block comes, post results of old block.
+        })
         const _WETH = new ethers.Contract(WETH, WETHABI, this.httpProvider);
-        const uniInterface =  new utils.Interface(univ3v2ABI);
-        const tokenInterface = new utils.Interface(tokenABI);
         let i = 0;
 
         _WETH.on("Deposit", async (address, amount, event) => {
             
             const properAmountWETH = amount / 10**18;
-            if (address == UniswapV3Router2) {
-                //console.log('buy')
-                const details = await this.parseTokenTransferFromWETHLog(event, true, properAmountWETH);
-                //console.log(details)
-                if (details) {
-                    i++;
-                    console.log(i)
-                }
+
+            if (address == UniswapV3Router2 
+            || address == OneInchv5Router //|| address == UniswapV2
+            ) {
+                let swapsToAdd = await this.parseTokenTransferFromWETHLog(event,true,properAmountWETH);
+                this.currentBlockSwaps = [...this.currentBlockSwaps, swapsToAdd]
             }
-
-            if (address == OneInchv5Router) {
-
-
-                const details = await this.parseTokenTransferFromWETHLog(event, true, properAmountWETH);
-                if (details) {
-                    i++;
-                    console.log(i)
-                }
-
-            }
-            if (address == SushiSwapRouter) {
-                console.log('sushiswap')
-            }
-
 
         })
 
@@ -141,26 +125,11 @@ export class Watcher {
 
             let properAmountWETH = amountWETH / 10**18;
             //UniV3
-            if (address == UniswapV3Router2) {
-
-
-                const details = await this.parseTokenTransferFromWETHLog(event, false, properAmountWETH);
-                if (details) {
-                    i++;
-                    console.log(i)
-                }
-
-            }
-
-            //1Inch
-            if (address == OneInchv5Router) {
-
-                const details = await this.parseTokenTransferFromWETHLog(event, false, properAmountWETH);
-                if (details) {
-                    i++;
-                    console.log(i)
-                }
-
+            if (address == UniswapV3Router2 
+                || address == OneInchv5Router //|| address == UniswapV2 || address = KyberSwapInBetweenContract ... etc....
+                ) {
+                    let swapsToAdd = await this.parseTokenTransferFromWETHLog(event,false,properAmountWETH);
+                    this.currentBlockSwaps = [...this.currentBlockSwaps, swapsToAdd]
             }
 
             if (address == SushiSwapRouter) {
@@ -201,9 +170,21 @@ export class Watcher {
             let symbol = await _token.symbol();
             let decimals =  await _token.decimals();
             let amountTokenSent = ethers.BigNumber.from(matchingTokenLog[0].data) / 10**(decimals)
-            const volumeUsd = amountWETH * this.etherPrice;
-            const price = amountWETH / amountTokenSent * this.etherPrice;
-            return { symbol, name, volumeUsd, price , etherPrice: this.etherPrice }
+            const usdVolume = amountWETH * this.etherPrice;
+            const usdPrice = amountWETH / amountTokenSent * this.etherPrice;
+
+            return {
+                blockNumber: receipt.blockNumber,
+                symbol: `${symbol}`,
+                contract: matchingTokenLog[0].address,
+                usdVolume: `${usdVolume}`,
+                usdPrice: `${usdPrice}`,
+                isBuy: `${isDeposit}`,
+                txHash: receipt.transactionHash
+            }
+            //
+
+            
         } catch(e) {
             console.log(receipt.transactionHash)
             console.log(e, `isDeposit ? ${isDeposit}`, receipt.transactionHash, matchingTokenLog, fixedLogs, event)
