@@ -141,9 +141,11 @@ export class Watcher {
                 return s && s.wallet && wallets.includes(s.wallet)
             })
             swaps.forEach(swap=> {
-                this.alertBot.telegram.sendMessage(this.chatId, `New transaction from ${swap.wallet} on ${swap.router}
-                ${swap.isBuy ? `Bought ` : `Sold`} $${swap.usdVolume} worth of ${swap.symbol}
-                transaction: https://etherscan.io/tx/${swap.txHash}
+                this.alertBot.telegram.sendMessage(this.chatId, 
+                    `New transaction from ${swap.wallet} on ${swap.router}
+${swap.isBuy ? `Bought ` : `Sold`} $${swap.usdVolume} worth of ${swap.symbol}
+TXHASH: https://etherscan.io/tx/${swap.txHash}
+CONTRACT ADDRESS: https://etherscan.io/tx/${swap.contract}
                 `)
             })
         }
@@ -184,7 +186,7 @@ export class Watcher {
             const properAmountWETH = amount / 10**18;
 
             if (address == UniswapV3Router2 
-            || address == OneInchv5Router //|| address == UniswapV2
+            || address == OneInchv5Router || address == KyberSwapInBetweenContract
             ) {
                 let swapsToAdd = await this.parseTokenTransferFromWETHLog(event,true,properAmountWETH);
                 if (swapsToAdd != null) {
