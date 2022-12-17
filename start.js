@@ -28,7 +28,7 @@ app.listen(PORT, () => {
 const CHAT_ID_CHANNEL = -1001855095247;
 const CHAT_ID_DISCUSSION = -1001882676825;
 const testnetStatus = false
-const localNodeIp = "192.168.0.154"
+const localNodeIp = "192.168.0.228"
 const httpPort = "9535"
 const wssPort = "9536"
 

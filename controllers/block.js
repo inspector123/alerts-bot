@@ -14,16 +14,12 @@ export const getAllBlocks = (req, res, next) => {
 
    export const createBlock = async (req, res, next) => {
     if (!req.body) return next(new AppError("No form data found", 404));
-    //console.log('body',req.body)
-    //const values = [req.body];
-    // //res.json(req.body);
-    // let values = Object.values(req.body);
     let { body } = req;
     const b = body.map(b=>Object.values(b));
     //console.log([b])
     const result = conn.query(
-      "INSERT INTO block (blockNumber, symbol, contract, usdVolume, usdPrice, isBuy, txHash) VALUES(?);".repeat(req.body.length-1),body.map(b=>Object.values(b)), (err,data)=>{
-        if (err) return err;
+      "INSERT INTO Blocks (blockNumber, symbol, contract, usdVolume, usdPrice, isBuy, txHash, wallet, router) VALUES(?);".repeat(req.body.length-1),body.map(b=>Object.values(b)), (err,data)=>{
+        if (err) res.status(500).json({status: "error", err})
         else {
           res.status(200).json({
             status: "success",
@@ -38,6 +34,8 @@ export const getAllBlocks = (req, res, next) => {
 
   }
   //for contract, what do i want to do?
+
+
 
   //
  /*

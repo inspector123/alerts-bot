@@ -59,4 +59,15 @@ volume1h varchar(50) NOT NULL,
 volume1d varchar(50) NOT NULL,
 PRIMARY KEY (id)
 );
+
+    const body = req.body.map(c=>{
+        const length = Object.values(c).length * 2;
+        return Array(2).fill(Object.values(c)).flat(); 
+    })
+    // let duplicateKeyUpdate = conn.query(`INSERT INTO table (symbol,contract,age,volume5m,volume15m,volume1h,volume1d,avgBuy5,avgBuy15,avgBuyH,BuyRatio5,BuyRatio15,BuyRatioH)
+    // VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) 
+    // ON DUPLICATE KEY
+    //     UPDATE symbol= ?,contract= ?,age= ?,volume5m= ?,volume15m= ?,volume1h= ?,volume1d= ?,avgBuy5= ?,avgBuy15= ?,avgBuyH= ?,BuyRatio5= ?,BuyRatio15= ?,BuyRatioH= ?;
+    // `.repeat(req.body.length), body)
 */
+

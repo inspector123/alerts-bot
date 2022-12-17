@@ -28,6 +28,7 @@ const KyberSwap = '0x617dee16b86534a5d792a4d7a62fb491b544111e'
 const UniswapV2 = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
 const SushiSwapRouter = "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"
 const KyberSwapInBetweenContract = "0x4Fe5b965E3BD76eFf36280471030ef9b0E6e2C1D"
+const RainbowRouter = "0x00000000009726632680FB29d3F7A9734E3010E2"
 
 
 
@@ -40,12 +41,6 @@ export class Watcher {
     alertBot;
     volumeBot;
     testnet;
-    // wssProvider;M
-    // httpProvider;
-    // archiveProvider;
-    // web3Archive;
-    // web3ws;
-    // web3Http;
     running = false;
     volumeRunning = false;
     interrupt = false;
@@ -60,45 +55,121 @@ export class Watcher {
         this.volumeBot = new Telegraf(volumeBotKey);
         this.startBots();
         if (testnet) {
-
-            // this.wssProvider = ZmokRpc.Goerli.Wss;
-            // this.httpProvider = ZmokRpc.Goerli.Http;
-            // this.archiveProvider = ZmokRpc.MainnetArchive.Ropsten;
+            console.log('testnet')
         } else {
 
 
             this.httpProvider = new ethers.providers.JsonRpcProvider(httpUrl);
             this.wsProvider = new ethers.providers.WebSocketProvider(wsUrl)
-            // this.wssProvider = ZmokRpc.Mainnet.Wss;
-            // this.httpProvider = ZmokRpc.Mainnet.Http;
-            // this.archiveProvider = ZmokRpc.MainnetArchive.Http;
         }
-        // this.web3ws = new Web3(new Web3.providers.WebsocketProvider(this.wssProvider));
-        // this.web3Http = new Web3(new Web3.providers.HttpProvider(this.httpProvider));
-        // this.web3Archive = new Web3(new Web3.providers.HttpProvider(this.archiveProvider));
-        // this.UniV2Factory = new this.web3Http.eth.Contract(UniV2FactoryABI, UniV2FactoryAddress);
-        //this.getEtherPrice();
-
-        this.runEthersBlockCheck();
+        this.blocks = 0;
 
     }
     async testRun() {
-        // const response = await api.get('/api/Blocks');
-        // console.log(response)
         await this.runVolumeCheck(5);
         
     }
+    
+    async sendToApi(currentBlockSwaps) {
+                //console.log(this.currentBlockSwaps);
+        //const response = await api.post(`/api/blocks`, this.currentBlockSwaps).then(r=>console.log(r.status)).catch(e=>console.error(e));
 
-    async runEthersBlockCheck() {
+
+        
+        try {
+            //Blocks
+            const response = await api.post(`/api/blocks`, currentBlockSwaps).then(r=>{
+                console.log(r.data.status)
+                this.blocks++;
+            }).catch(e=>console.error(e));
+
+            // let contractsToPost;
+            // //Contracts
+            // let contracts = currentBlockSwaps.map(b=> {
+            //     return {symbol: b.symbol,contract: b.contract,age: 0,volume5m: b.volume,volume15m: b.volume,volume1h: 0,volume1d: 0,avgBuy5M: 0,avgBuy15: 0,avgBuyH: 0,BuyRatio5: 0,BuyRatio15: 0,BuyRatioH: 0}
+
+            // })
+            // //but... you only want to post for volume15 if the contract is older than 15 minutes.
+            // this.count5Blocks++;
+            // this.count15Blocks++;
+            // this.count60Blocks++;
+            // if (this.count5Blocks == 5) contracts.volume5m = 0;
+            // if (this.count15Blocks == 15) contracts.volume15m = 0;
+            // if (this.count60Blocks == 60) contracts.volume1h = 0;
+            // const { data : {data}} = await api.get(`/api/contracts`)
+            // if (data.length) {
+            //     const contractsArray = contracts.map(c=>c.contracts)
+            //     const contractsToUpdate = data.filter(c=> contractsArray.includes(c.contract))
+            //     contractsToUpdate.forEach(async c=> {
+            //         await api.put(`api/contracts/${c.id}`, c).then(r=>console.log(r.data)).catch(e=>e.data)
+            //     })
+            //     const contractsToPost = data.filter(c=>!contractsArray.includes(c.contract)).map(c=>{
+            //         delete c.id;
+            //         return c
+            //     });
+            // } else {
+            //     contracts = 
+            // }
+
+            // const result = await api.post(`/api/contracts`, contractsToPost).then(r=>console.log(r.data)).catch(e=>console.error(e.data));
+
+            // ///interesting... use post\
+
+
+
+
+
+            
+            
+
+            //console.log(b)
+            //const response = await api.post(`/api/contracts`, contracts).then(r=>console.log(r)).catch(e=>console.log(e))
+        } catch (e) {
+            console.log(e)
+        }
+
+        this.currentBlockSwaps = [];
+        // how will i calculate volume5m,volume15m,volume1h,volume1D?
+        // naive implementation: get all contracts, add volume to last volume entry.
+
+                //lol.
+    }
+
+    async sendToTelegram(currentBlockSwaps) {
+        if (currentBlockSwaps.length) {
+            const swaps = currentBlockSwaps.filter(s=> {
+                return s && s.wallet && wallets.includes(s.wallet)
+            })
+            swaps.forEach(swap=> {
+                this.alertBot.telegram.sendMessage(this.chatId, `New transaction from ${swap.wallet} on ${swap.router}
+                ${swap.isBuy ? `Bought ` : `Sold`} $${swap.usdVolume} worth of ${swap.symbol}
+                transaction: https://etherscan.io/tx/${swap.txHash}
+                `)
+            })
+        }
+        
+
+    }
+
+    
+    async runEthersBlockCheck(blocks) {
+        if (blocks) this.blocks = blocks;
 
         await this.intervalGetPrice();
         this.httpProvider.on('block', async (block)=>{
             console.log('latest block: ', block)
             this.currentBlock = block;
             if (this.currentBlockSwaps.length) {
-                //console.log(this.currentBlockSwaps);
-                const response = await api.post(`/api/blocks`, this.currentBlockSwaps).then(r=>console.log(r.status)).catch(e=>console.error(e));
-                this.currentBlockSwaps = [];
+                
+                this.sendToApi(this.currentBlockSwaps);
+                this.sendToTelegram(this.currentBlockSwaps);
+
+
+                //second idea: get all the contracts that need to be updated.
+                //PUT all those contracts.
+                //POST new contracts.
+
+
             }
 
 
@@ -116,7 +187,10 @@ export class Watcher {
             || address == OneInchv5Router //|| address == UniswapV2
             ) {
                 let swapsToAdd = await this.parseTokenTransferFromWETHLog(event,true,properAmountWETH);
-                this.currentBlockSwaps = [...this.currentBlockSwaps, swapsToAdd]
+                if (swapsToAdd != null) {
+                    this.currentBlockSwaps = [...this.currentBlockSwaps, swapsToAdd]
+                }
+                
             }
 
         })
@@ -126,10 +200,13 @@ export class Watcher {
             let properAmountWETH = amountWETH / 10**18;
             //UniV3
             if (address == UniswapV3Router2 
-                || address == OneInchv5Router //|| address == UniswapV2 || address = KyberSwapInBetweenContract ... etc....
+                || address == OneInchv5Router || address == KyberSwapInBetweenContract //... etc....
                 ) {
                     let swapsToAdd = await this.parseTokenTransferFromWETHLog(event,false,properAmountWETH);
-                    this.currentBlockSwaps = [...this.currentBlockSwaps, swapsToAdd]
+                    if (swapsToAdd != null) {
+                        this.currentBlockSwaps = [...this.currentBlockSwaps, swapsToAdd]
+                    }
+                    
             }
 
             if (address == SushiSwapRouter) {
@@ -141,6 +218,20 @@ export class Watcher {
         
     }
 
+    routerName(address) {
+        switch (address) {
+            case UniswapV3Router2:
+                return "UniswapV3Router2";
+            case OneInchv5Router:
+                return "1InchV5";
+            case KyberSwap: 
+                return "Kyberswap";
+            case UniswapV2:
+                return "UniswapV2";
+            default: 
+                return address;
+        }
+    }
     //if isDeposit is false then it's a withdrawal
     async parseTokenTransferFromWETHLog(event, isDeposit, amountWETH) {
         const receipt = await event.getTransactionReceipt();
@@ -148,6 +239,7 @@ export class Watcher {
             log.topics = log.topics.map(t=>t.replace('0x000000000000000000000000', '0x'));
             return log
         }).filter(log=>log.topics.length == 3);
+        if (receipt.to == RainbowRouter) return null;
         let matchingTokenLog = [];
         if (isDeposit) {
             matchingTokenLog = fixedLogs.filter(log=>{
@@ -180,7 +272,9 @@ export class Watcher {
                 usdVolume: `${usdVolume}`,
                 usdPrice: `${usdPrice}`,
                 isBuy: `${isDeposit}`,
-                txHash: receipt.transactionHash
+                txHash: receipt.transactionHash,
+                wallet: receipt.from,
+                router: this.routerName(receipt.to)
             }
             //
 
@@ -188,6 +282,7 @@ export class Watcher {
         } catch(e) {
             console.log(receipt.transactionHash)
             console.log(e, `isDeposit ? ${isDeposit}`, receipt.transactionHash, matchingTokenLog, fixedLogs, event)
+            return null;
         }
     }
 
@@ -221,54 +316,56 @@ export class Watcher {
     startBots = async () => {
         this.volumeBot.command('chatId', ctx=>this.volumeBot.telegram.sendMessage(ctx.chat.id, `Chat Id is ${ctx.chat.id}`))
         
-        this.volumeBot.command('interrupt', ()=>{
-            this.volumeBot.telegram.sendMessage(this.chatId, `Attempting to interrupt...`)
-            this.interrupt = true;
-        })
-        this.volumeBot.command('restart', ()=>{
-            this.volumeBot.telegram.sendMessage(this.chatId, `Attempting to restart...`)
-            this.interrupt = false;
-        })
+        // this.volumeBot.command('interrupt', ()=>{
+        //     this.volumeBot.telegram.sendMessage(this.chatId, `Attempting to interrupt...`)
+        //     this.interrupt = true;
+        // })
+        // this.volumeBot.command('restart', ()=>{
+        //     this.volumeBot.telegram.sendMessage(this.chatId, `Attempting to restart...`)
+        //     this.interrupt = false;
+        // })
         this.alertBot.command('start', ctx => {
-            this.alertBot.telegram.sendMessage(this.chatId, `Welcome. Hit /runAlertBot to begin.`, {
+            this.alertBot.telegram.sendMessage(this.chatId, `Welcome`, {
             })
+            this.runEthersBlockCheck();
+            
+        })
+            
+        
+        // })
+        // this.volumeBot.command('start', ctx => {
+        //     this.volumeBot.telegram.sendMessage(this.chatId, `Welcome.`, {
+        //     })
             
             
         
-        })
-        this.volumeBot.command('start', ctx => {
-            this.volumeBot.telegram.sendMessage(this.chatId, `Welcome.`, {
-            })
-            
-            
-        
-        })
-        this.volumeBot.command('r', ctx=>{
-            if (!this.running) {
-                this.volumeBot.telegram.sendMessage(this.chatId, `Running`)
-                this.runBlockCheck(true)
-                this.running = true
-            } else {
-                this.volumeBot.telegram.sendMessage(this.chatId, `Already running.`)
+        // })
+        // this.volumeBot.command('r', ctx=>{
+        //     if (!this.running) {
+        //         this.volumeBot.telegram.sendMessage(this.chatId, `Running`)
+        //         this.runBlockCheck(true)
+        //         this.running = true
+        //     } else {
+        //         this.volumeBot.telegram.sendMessage(this.chatId, `Already running.`)
 
-            }
-        })
+        //     }
+        // })
 
-        this.volumeBot.command('v', async (ctx)=>{
-            if (!this.volumeRunning && !this.interrupt) {
-                console.log('running volume')
-                const blocks = ctx.message.text.slice(3)
-                console.log(blocks[0])
-                this.volumeBot.telegram.sendMessage(this.chatId, `running volume check on last ${blocks} blocks. Time: ${new Date().getTime()/ 1000}`)
-                this.volumeRunning = true
-                this.runVolumeCheck(blocks)
+        // this.volumeBot.command('v', async (ctx)=>{
+        //     if (!this.volumeRunning && !this.interrupt) {
+        //         console.log('running volume')
+        //         const blocks = ctx.message.text.slice(3)
+        //         console.log(blocks[0])
+        //         this.volumeBot.telegram.sendMessage(this.chatId, `running volume check on last ${blocks} blocks. Time: ${new Date().getTime()/ 1000}`)
+        //         this.volumeRunning = true
+        //         this.runVolumeCheck(blocks)
                 
                 
-            }
-            else {
-                this.volumeBot.telegram.sendMessage(this.chatId, `already running volume check`)
-            }
-        })
+        //     }
+        //     else {
+        //         this.volumeBot.telegram.sendMessage(this.chatId, `already running volume check`)
+        //     }
+        // })
 
         this.alertBot.launch();
         this.volumeBot.launch();
@@ -330,20 +427,6 @@ export class Watcher {
     }
 
 
-    routerName(address) {
-        switch (address) {
-            case UniswapV3Router2:
-                return "UniswapV3Router2";
-            case OneInchv5Router:
-                return "1InchV5";
-            case KyberSwap: 
-                return "Kyberswap";
-            case UniswapV2:
-                return "UniswapV2";
-            default: 
-                return "";
-        }
-    }
     // SHOULD HAVE SENT TO, RECEIVED FROM
     sendTelegramSwapMessage = (tx, swapDetails, tokenPairContract, tokenContractAddress) => {
         
