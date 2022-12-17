@@ -35,6 +35,14 @@ const RainbowRouter = "0x00000000009726632680FB29d3F7A9734E3010E2"
 const OneInchV4Router = "0x1111111254fb6c44bAC0beD2854e76F90643097d"
 
 
+//Pools
+
+const v3DaiUsdt = "0x6f48ECa74B38d2936B02ab603FF4e36A6C0E3A77"
+const v3Usdt = "0x11b815efB8f581194ae79006d24E0d814B7697F6"
+const v3USDC = "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640"
+const disallowedPools = [v3DaiUsdt,v3Usdt,v3USDC]
+
+
 
 
 
@@ -218,18 +226,35 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
 
     }
     async grabSwap(event){
-        
-        const receipt = await event.getTransactionReceipt();
-        //return if kyberswap ; kyberswap will take care of it
-        const addresses = receipt.logs.map(l=>l.address);
-        console.log(addresses)
-        if (addresses.includes(KyberSwap)) {
-            console.log('kyberswap will take care of it')
-            return;
-        } else {
-            this.blockTxHashes = [...this.blockTxHashes, event.transactionHash] 
-            console.log('sdaklj')
-            return;
+        try {
+            const receipt = await event.getTransactionReceipt();
+            //return if kyberswap ; kyberswap will take care of it
+            const addresses = receipt.logs.map(l=>l.address);
+            //console.log(receipt.logs)
+            if (addresses.includes(KyberSwap)) {
+                console.log('kyberswap will take care of it')
+                return;
+            } else {
+                this.blockTxHashes = [...this.blockTxHashes, event.transactionHash] 
+                const swapLogs = receipt.logs.filter(log=>log.data.length >= 258 && !disallowedPools.includes(log.address));
+                if (swapLogs) {
+                    const v2Logs = swapLogs.filter(log=>log.data.length == 258 
+                        && !(log.topics[1] == UniswapV2 && log.topics[2] == UniswapV2
+                            ));
+                    const v3Logs = swapLogs.filter(log=>log.data.length == 322);
+                    //what to do if both are in one swap
+                    if (v2Logs.length) {
+                        console.log(v2Logs)
+                    }
+                    if (v3Logs.length) {
+                        console.log(v3Logs);
+                    }
+                }
+                
+                
+            }
+        } catch(e) {
+           
         }
     }
     handleKyberSwapEvent(event) {
