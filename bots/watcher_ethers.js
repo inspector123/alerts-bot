@@ -11,6 +11,9 @@ import USDTABI from "./abi/usdtabi.json" assert { type: "json" };
 import WETHABI from './abi/wethabi.json' assert { type: "json" };
 import univ3v2ABI from './abi/univ3v2abi.json' assert { type: "json" };
 import tokenABI from './abi/tokenABI.json' assert { type: "json" };
+import univ2PairABI from './abi/univ2PairABI.json' assert { type: "json" };
+import uniV3PoolABI from './abi/uniV3PoolABI.json' assert { type: "json" };
+import KyberswapABI from './abi/KyberswapABI.json' assert { type: "json" };
 
 //import { Interface } from 'ethers';
 
@@ -80,10 +83,10 @@ export class Watcher {
         
         try {
             //Blocks
-            const response = await api.post(`/api/blocks`, currentBlockSwaps).then(r=>{
-                console.log(r.data.status)
-                this.blocks++;
-            }).catch(e=>console.error(e.data));
+            // const response = await api.post(`/api/blocks`, currentBlockSwaps).then(r=>{
+            //     console.log(r.data.status)
+            //     this.blocks++;
+            // }).catch(e=>console.error(e.data));
 
             // let contractsToPost;
             // //Contracts
@@ -162,64 +165,76 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
         await this.intervalGetPrice();
         this.httpProvider.on('block', async (block)=>{
             console.log('latest block: ', block)
-            this.currentBlock = block;
-            if (this.currentBlockSwaps.length) {
+            this.blockTxHashes = [];
+
+            // if (this.currentBlockSwaps.length) {
                 
-                this.sendToApi(this.currentBlockSwaps);
-                //this.sendToTelegram(this.currentBlockSwaps);
+            //     this.sendToApi(this.currentBlockSwaps);
+            //     //this.sendToTelegram(this.currentBlockSwaps);
 
 
-                //second idea: get all the contracts that need to be updated.
-                //PUT all those contracts.
-                //POST new contracts.
-
-
-            }
-
-
-
-            //as soon as new block comes, post results of old block.
         })
         const _WETH = new ethers.Contract(WETH, WETHABI, this.httpProvider);
-        let i = 0;
+        const _USDC = new ethers.Contract(USDC, USDCABI, this.httpProvider);
+        const _USDT = new ethers.Contract(USDT, USDTABI, this.httpProvider);
+        const _Kyberswap = new ethers.Contract(KyberSwap, KyberswapABI, this.httpProvider);
+        //let i = 0;
 
         _WETH.on("Deposit", async (address, amount, event) => {
-            
-            const properAmountWETH = amount / 10**18;
-
-            if (address == UniswapV3Router2 
-            || address == OneInchv5Router || address == KyberSwapInBetweenContract || address == UniswapV2
-            ) {
-                let swapsToAdd = await this.parseTokenTransferFromWETHLog(event,true,properAmountWETH);
-                if (swapsToAdd != null) {
-                    this.currentBlockSwaps = [...this.currentBlockSwaps, swapsToAdd]
-                }
-                
-            }
-
-        })
-
-        _WETH.on("Withdrawal", async (address, amountWETH, event) => {
-
-            let properAmountWETH = amountWETH / 10**18;
-            //UniV3
-            if (address == UniswapV3Router2 
-                || address == OneInchv5Router || address == KyberSwapInBetweenContract//... etc....
-                ) {
-                    let swapsToAdd = await this.parseTokenTransferFromWETHLog(event,false,properAmountWETH);
-                    if (swapsToAdd != null) {
-                        this.currentBlockSwaps = [...this.currentBlockSwaps, swapsToAdd]
+            if (this.blockTxHashes.includes(event.transactionHash)) return;
+            else {
+                if (address == UniswapV3Router2
+                    || address  == OneInchv5Router || address == UniswapV2 || address == OneInchV4Router) {
+                        this.grabSwap(event);
                     }
-                    
-            }
-
-            if (address == SushiSwapRouter) {
-                console.log('sushiswap')
             }
 
         })
+        _WETH.on("Withdrawal", async (address, amount, event) => {
+            if (this.blockTxHashes.includes(event.transactionHash)) return;
+            if (address == UniswapV3Router2
+                || address  == OneInchv5Router || address == UniswapV2 || address == OneInchV4Router) {
+                    this.grabSwap(event);
+                }
 
+        })
+        _USDC.on("Transfer", async (to,from,amount,event)=>{
+            if (this.blockTxHashes.includes(event.transactionHash)) return;
+            
+            //const rcpt = await event.getTransactionReceipt();
+
+        })
+        _USDT.on("Transfer", async (to,from,amount,event)=>{
+            if (this.blockTxHashes.includes(event.transactionHash)) return;
+            
+            //const rcpt = await event.getTransactionReceipt();
+
+        })
+        _Kyberswap.on("Swapped", (sender, srcToken, dstToken, dstReceiver, spentAmount, returnAmount, event)=> {
+            console.log('swapped')
+            this.handleKyberSwapEvent(event);
+        })
+
+
+    }
+    async grabSwap(event){
         
+        const receipt = await event.getTransactionReceipt();
+        //return if kyberswap ; kyberswap will take care of it
+        const addresses = receipt.logs.map(l=>l.address);
+        console.log(addresses)
+        if (addresses.includes(KyberSwap)) {
+            console.log('kyberswap will take care of it')
+            return;
+        } else {
+            this.blockTxHashes = [...this.blockTxHashes, event.transactionHash] 
+            console.log('sdaklj')
+            return;
+        }
+    }
+    handleKyberSwapEvent(event) {
+        this.blockTxHashes = [...this.blockTxHashes, event.transactionHash];
+        return;
     }
 
     routerName(address) {
