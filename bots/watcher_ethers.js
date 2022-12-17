@@ -29,6 +29,7 @@ const UniswapV2 = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
 const SushiSwapRouter = "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"
 const KyberSwapInBetweenContract = "0x4Fe5b965E3BD76eFf36280471030ef9b0E6e2C1D"
 const RainbowRouter = "0x00000000009726632680FB29d3F7A9734E3010E2"
+const OneInchV4Router = "0x1111111254fb6c44bAC0beD2854e76F90643097d"
 
 
 
@@ -47,13 +48,14 @@ export class Watcher {
     UniV2Factory;
     etherPrice;
     currentBlockSwaps = [];
-    
+    started; 
+
     constructor(chatId, wallets, alertBotKey, volumeBotKey, testnet, httpUrl, wsUrl) {
         this.chatId = chatId;
         this.wallets = wallets;
         this.alertBot = new Telegraf(alertBotKey);
         this.volumeBot = new Telegraf(volumeBotKey);
-        this.startBots();
+        //this.startBots();
         if (testnet) {
             console.log('testnet')
         } else {
@@ -63,7 +65,7 @@ export class Watcher {
             this.wsProvider = new ethers.providers.WebSocketProvider(wsUrl)
         }
         this.blocks = 0;
-
+        this.runEthersBlockCheck();
     }
     async testRun() {
         await this.runVolumeCheck(5);
@@ -81,7 +83,7 @@ export class Watcher {
             const response = await api.post(`/api/blocks`, currentBlockSwaps).then(r=>{
                 console.log(r.data.status)
                 this.blocks++;
-            }).catch(e=>console.error(e));
+            }).catch(e=>console.error(e.data));
 
             // let contractsToPost;
             // //Contracts
@@ -138,14 +140,14 @@ export class Watcher {
     async sendToTelegram(currentBlockSwaps) {
         if (currentBlockSwaps.length) {
             const swaps = currentBlockSwaps.filter(s=> {
-                return s && s.wallet && wallets.includes(s.wallet)
+                return s && s.wallet && (wallets.includes(s.wallet) || wallets.includes(s.wallet.toLowerCase()))
             })
             swaps.forEach(swap=> {
                 this.alertBot.telegram.sendMessage(this.chatId, 
                     `New transaction from ${swap.wallet} on ${swap.router}
 ${swap.isBuy ? `Bought ` : `Sold`} $${swap.usdVolume} worth of ${swap.symbol}
 TXHASH: https://etherscan.io/tx/${swap.txHash}
-CONTRACT ADDRESS: https://etherscan.io/tx/${swap.contract}
+CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                 `)
             })
         }
@@ -164,7 +166,7 @@ CONTRACT ADDRESS: https://etherscan.io/tx/${swap.contract}
             if (this.currentBlockSwaps.length) {
                 
                 this.sendToApi(this.currentBlockSwaps);
-                this.sendToTelegram(this.currentBlockSwaps);
+                //this.sendToTelegram(this.currentBlockSwaps);
 
 
                 //second idea: get all the contracts that need to be updated.
@@ -186,7 +188,7 @@ CONTRACT ADDRESS: https://etherscan.io/tx/${swap.contract}
             const properAmountWETH = amount / 10**18;
 
             if (address == UniswapV3Router2 
-            || address == OneInchv5Router || address == KyberSwapInBetweenContract
+            || address == OneInchv5Router || address == KyberSwapInBetweenContract || address == UniswapV2
             ) {
                 let swapsToAdd = await this.parseTokenTransferFromWETHLog(event,true,properAmountWETH);
                 if (swapsToAdd != null) {
@@ -202,7 +204,7 @@ CONTRACT ADDRESS: https://etherscan.io/tx/${swap.contract}
             let properAmountWETH = amountWETH / 10**18;
             //UniV3
             if (address == UniswapV3Router2 
-                || address == OneInchv5Router || address == KyberSwapInBetweenContract //... etc....
+                || address == OneInchv5Router || address == KyberSwapInBetweenContract//... etc....
                 ) {
                     let swapsToAdd = await this.parseTokenTransferFromWETHLog(event,false,properAmountWETH);
                     if (swapsToAdd != null) {
@@ -237,12 +239,17 @@ CONTRACT ADDRESS: https://etherscan.io/tx/${swap.contract}
     //if isDeposit is false then it's a withdrawal
     async parseTokenTransferFromWETHLog(event, isDeposit, amountWETH) {
         const receipt = await event.getTransactionReceipt();
+        //prevent duplicates
+        if (this.currentBlockSwaps.map(b=>b.txHash).includes(receipt.transactionHash)) return;
+
         const fixedLogs = receipt.logs.map(log=>{
             log.topics = log.topics.map(t=>t.replace('0x000000000000000000000000', '0x'));
             return log
         }).filter(log=>log.topics.length == 3);
         if (receipt.to == RainbowRouter) return null;
         let matchingTokenLog = [];
+        //need custom code where it will look for multiple deposits and withdrawals and choose whichever is largest
+        // --- shinja etc transfers are not choosing the right deposit vs withdrawal.
         if (isDeposit) {
             matchingTokenLog = fixedLogs.filter(log=>{
                 return log.topics[2] == receipt.from.toLowerCase()
@@ -283,7 +290,8 @@ CONTRACT ADDRESS: https://etherscan.io/tx/${swap.contract}
             
         } catch(e) {
             console.log(receipt.transactionHash)
-            console.log(e, `isDeposit ? ${isDeposit}`, receipt.transactionHash, matchingTokenLog, fixedLogs, event)
+            console.log(e, `isDeposit ? ${isDeposit}`, receipt.transactionHash, matchingTokenLog, fixedLogs)
+            console.log(wallets.includes(receipt.from), 'wallet in wallets')
             return null;
         }
     }
@@ -327,9 +335,17 @@ CONTRACT ADDRESS: https://etherscan.io/tx/${swap.contract}
         //     this.interrupt = false;
         // })
         this.alertBot.command('start', ctx => {
-            this.alertBot.telegram.sendMessage(this.chatId, `Welcome`, {
-            })
-            this.runEthersBlockCheck();
+            if (this.started) {
+
+                this.alertBot.telegram.sendMessage(this.chatId, `already running you cuck`, {
+                })
+            } else {
+                this.alertBot.telegram.sendMessage(this.chatId, `running`, {
+                })
+                this.started = true;
+                //this.runEthersBlockCheck();
+            }
+            
             
         })
             
