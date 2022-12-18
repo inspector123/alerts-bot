@@ -14,6 +14,9 @@ import tokenABI from './abi/tokenABI.json' assert { type: "json" };
 import univ2PairABI from './abi/univ2PairABI.json' assert { type: "json" };
 import uniV3PoolABI from './abi/uniV3PoolABI.json' assert { type: "json" };
 import KyberswapABI from './abi/KyberswapABI.json' assert { type: "json" };
+import basicTokenABI from './abi/basicTokenABI.json' assert { type: "json" };
+import { solidityKeccak256 } from 'ethers/lib/utils';
+
 
 //import { Interface } from 'ethers';
 
@@ -23,6 +26,8 @@ const apiKey = `3UNWDPMM65ARUPABPKM9MQXEAM3MYAATN6`;
 const USDC = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
 const USDT = "0xdAC17F958D2ee523a2206206994597C13D831ec7";
 const WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
+const DAI = "0x6B175474E89094C44Da98b954EedeAC495271d0F";
+const StablesOrEth = [USDC,USDT,DAI,WETH]
 
 //routers
 const UniswapV3Router2 = '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
@@ -255,14 +260,112 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                     const v3Logs = swapLogs.filter(log=>log.data.length == 322);
 
                     if (v2Logs.length) {
+                        //set up v2 pair
                         const _interface = new utils.Interface(univ2PairABI);
+                        const _v2Pair = new ethers.Contract(v2Logs[0].address, univ2PairABI, this.httpProvider);
+                        
+                        //get tokens from pool interface
+                        const token0 = await _v2Pair.token0();
+                        const token1 = await _v2Pair.token1();
+                        const desiredToken = StablesOrEth.includes(token0) ? token1 : token0;
+                        const poolToken = StablesOrEth.includes(token0) ? token0: token1;
+
+                        //set up contracts
+                        const _desiredToken = new ethers.Contract(ercToken, basicTokenABI, this.httpProvider);
+                        const _poolToken = new ethers.Contract(poolToken, basicTokenABI, this.httpProvider);
+                    
+
+                        //get swap log for v2
                         const parsedLog = _interface.parseLog(v2Logs[0]);
-                        //console.log(parsedLog)
+                        // const details = {
+                        //     amount0In: parsedLog.args.amount0In,
+                        //     amount1In: parsedLog.args.amount1In,
+                        //     amount0Out: parsedLog.args.amount0Out,
+                        //     amount1Out: parsedLog.args.amount1Out
+                        // }
+
+                        //convert amount0In, amount0Out,amount1In, amount1Out to desiredToken,poolToken
+
+                        let details = {
+                            poolTokenOut: 0,
+                            poolTokenIn: 0,
+                            desiredTokenIn: 0,
+                            desiredTokenOut: 0
+                        }
+
+                        if (poolToken == token0) {
+                            details.poolTokenOut = amount0Out,
+                            details.poolTokenIn = amount0In,
+                            details.desiredTokenIn = amount1In,
+                            details.desiredTokenOut = amount1Out
+                        }
+                        else {
+                            //poolToken == token1
+                            details.desiredTokenIn = amount0In,
+                            details.desiredTokenOut = amount0Out,
+                            details.poolTokenIn = amount1In,
+                            details.poolTokenOut = amount1Out
+                        }
+                        let transactionType;
+                        if (details.desiredTokenOut < details.desiredTokenIn)  { 
+                            transactionType = "buy";
+                        }
+                        let usdVolume;
+                        const symbol = await _desiredToken.symbol();
+                        const poolDecimals = await _poolToken.decimals();
+                        const desiredDecimals = await _desiredToken.decimals();
+                        const isStableCoin = [USDC,USDT,DAI].includes(poolToken);
+                        const isWeth = poolToken == WETH;
+                        if (isStableCoin) {
+                            usdVolume = details.poolTokenOut / 10**poolDecimals;
+                            usdPrice = usdVolume ;
+                        } 
+                        if (isWeth) {
+                            usdVolume = (details.poolTokenOut / 10**poolDecimals ) * this.etherPrice;
+                        }
+
+                             const blockObject =
+                            {
+                                blockNumber: receipt.blockNumber,
+                                symbol: `${symbol}`,
+                                contract: desiredToken,
+                                usdVolume: `${usdVolume}`,
+                                usdPrice: `${usdPrice}`,
+                                isBuy: `${isDeposit}`,
+                                txHash: receipt.transactionHash,
+                                wallet: receipt.from,
+                                router: this.routerName(receipt.to)
+                            }
+
+
+                        // //determine buy or sell
+                        // let transactionType;
+                        // if ((!details.amount0Out && desiredToken == token0) || (!details.amount1Out && desiredToken == token1)) {
+                        //     transactionType == "buy";
+                        //     const symbol = await _desiredToken.symbol();
+                        //     const usdVolume = [USDC,USDT,DAI].includes(poolToken) ? 
+                        //     const blockObject =
+                        //     {
+                        //         blockNumber: receipt.blockNumber,
+                        //         symbol: `${symbol}`,
+                        //         contract: desiredToken,
+                        //         usdVolume: `${usdVolume}`,
+                        //         usdPrice: `${usdPrice}`,
+                        //         isBuy: `${isDeposit}`,
+                        //         txHash: receipt.transactionHash,
+                        //         wallet: receipt.from,
+                        //         router: this.routerName(receipt.to)
+                        //     }
+
+                        // }
+                        // if (details.amount0Out && ercToken == token0) transactionType == "sell";
+
+
                     }
                     if (v3Logs.length) {
                        const _interface = new utils.Interface(uniV3PoolABI);
                        const parsedLog = _interface.parseLog(v3Logs[0]);
-                       //console.log(parsedLog)
+                       
                     }
                     if (v3Logs.length && v2Logs.length) {
                         console.log('klasjfflkj')
