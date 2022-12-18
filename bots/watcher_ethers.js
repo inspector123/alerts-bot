@@ -40,7 +40,16 @@ const OneInchV4Router = "0x1111111254fb6c44bAC0beD2854e76F90643097d"
 const v3DaiUsdt = "0x6f48ECa74B38d2936B02ab603FF4e36A6C0E3A77"
 const v3Usdt = "0x11b815efB8f581194ae79006d24E0d814B7697F6"
 const v3USDC = "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640"
-const disallowedPools = [v3DaiUsdt,v3Usdt,v3USDC]
+const v3_DaiUSDCv4 = "0x5777d92f208679DB4b9778590Fa3CAB3aC9e2168"
+const disallowedPools = [v3DaiUsdt,v3Usdt,v3USDC, v3_DaiUSDCv4]
+
+//Contracts
+const mevBot1 = "0x000000000035b5e5ad9019092c665357240f594e"
+
+
+const disallowedTo = [mevBot1]
+
+const daiContract = "0x6B175474E89094C44Da98b954EedeAC495271d0F"
 
 
 
@@ -208,12 +217,13 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
         })
         _USDC.on("Transfer", async (to,from,amount,event)=>{
             if (this.blockTxHashes.includes(event.transactionHash)) return;
-            
+            this.grabSwap(event);
             //const rcpt = await event.getTransactionReceipt();
 
         })
         _USDT.on("Transfer", async (to,from,amount,event)=>{
             if (this.blockTxHashes.includes(event.transactionHash)) return;
+            this.grabSwap(event);
             
             //const rcpt = await event.getTransactionReceipt();
 
@@ -236,18 +246,27 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                 return;
             } else {
                 this.blockTxHashes = [...this.blockTxHashes, event.transactionHash] 
+                if (disallowedTo.includes(receipt.to)) return;
                 const swapLogs = receipt.logs.filter(log=>log.data.length >= 258 && !disallowedPools.includes(log.address));
                 if (swapLogs) {
                     const v2Logs = swapLogs.filter(log=>log.data.length == 258 
                         && !(log.topics[1] == UniswapV2 && log.topics[2] == UniswapV2
                             ));
                     const v3Logs = swapLogs.filter(log=>log.data.length == 322);
-                    //what to do if both are in one swap
+
                     if (v2Logs.length) {
-                        console.log(v2Logs)
+                        const _interface = new utils.Interface(univ2PairABI);
+                        const parsedLog = _interface.parseLog(v2Logs[0]);
+                        //console.log(parsedLog)
                     }
                     if (v3Logs.length) {
-                        console.log(v3Logs);
+                       const _interface = new utils.Interface(uniV3PoolABI);
+                       const parsedLog = _interface.parseLog(v3Logs[0]);
+                       //console.log(parsedLog)
+                    }
+                    if (v3Logs.length && v2Logs.length) {
+                        console.log('klasjfflkj')
+                        console.log(event.transactionHash)
                     }
                 }
                 
