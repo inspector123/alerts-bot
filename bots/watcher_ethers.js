@@ -121,7 +121,7 @@ export class Watcher {
         try {
             //Blocks
             let swaps = previousBlockSwaps.flat().filter(b=>b)
-            console.log(swaps)
+            //console.log(swaps)
             const response = await api.post(`/api/blocks`, swaps)
             console.log(response.data.status)
             //console.log(currentBlockSwaps.flat())
@@ -379,8 +379,15 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                 const isStableCoin = [USDC,USDT,BUSD,DAI].includes(poolToken);
                 const isWeth = poolToken == WETH;
                 //v2
-                if (details.desiredTokenOut < details.desiredTokenIn)  { 
-                    transactionType = "buy";
+                //possible scenarios
+                /*
+                amount1In 0, 2
+                amount1Out 2,0
+                amount0In 0, 2
+                amount0Out 2,0
+                */
+                if (details.desiredTokenOut == 0 && details.poolTokenIn == 0)  { 
+                    transactionType = 0;
                     amountPoolTokenWithDecimals = details.poolTokenOut / 10**poolDecimals
                     amountDesiredTokenWithDecimals = details.desiredTokenIn / 10**desiredDecimals
                     if (isStableCoin) {
@@ -393,7 +400,7 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                     }
 
                 } else {
-                    transactionType = "sell";
+                    transactionType = 1;
                     amountPoolTokenWithDecimals = details.poolTokenIn / 10**poolDecimals;
                     amountDesiredTokenWithDecimals = details.desiredTokenOut / 10**desiredDecimals;
                     if (isStableCoin) {
@@ -415,7 +422,7 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                         contract: desiredToken,
                         usdVolume: usdVolume,
                         usdPrice: usdPrice,
-                        isBuy: `${transactionType}`,
+                        isBuy: transactionType,
                         txHash: receipt.transactionHash,
                         wallet: receipt.from,
                         router: this.routerName(receipt.to),
@@ -478,7 +485,8 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                 const isWeth = poolToken == WETH;
                 //console.log(details.desiredTokenAmount < 0, details.poolTokenAmount < 0)
                 if (details.desiredTokenAmount < 0) {
-                    transactionType = "sell";
+                    console.log('desired', details.desiredTokenAmount, details.desiredTokenAmount < 0, desiredSymbol, receipt.transactionHash);
+                    transactionType = 1;
                     if (isStableCoin) {
                         usdVolume = details.poolTokenAmount / 10**poolDecimals;
                         usdPrice = details.poolTokenAmount / -1*details.desiredTokenAmount;
@@ -489,7 +497,8 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                     }
                 } 
                 if (details.poolTokenAmount < 0) {
-                    transactionType = "buy";
+                    console.log('pool',details.poolTokenAmount, details.poolTokenAmount < 0, poolSymbol, receipt.transactionHash)
+                    transactionType = 0;
                     if (isStableCoin) {
                         usdVolume = -1*details.poolTokenAmount / 10**poolDecimals;
                         usdPrice = -1*details.poolTokenAmount / details.desiredTokenAmount;
@@ -509,7 +518,7 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                     contract: desiredToken,
                     usdVolume: usdVolume,
                     usdPrice: usdPrice,
-                    isBuy: `${transactionType}`,
+                    isBuy: transactionType,
                     txHash: receipt.transactionHash,
                     wallet: receipt.from,
                     router: this.routerName(receipt.to),
@@ -518,6 +527,7 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                     isEpiWallet: wallets.includes(receipt.from),
                     etherPrice: this.etherPrice
                 }
+                //console.log(v3SwapsToAdd, amountPoolTokenWithDecimals, amountDesiredTokenWithDecimals)
                 v3Swaps = [...v3Swaps, v3SwapsToAdd]
 
             }
