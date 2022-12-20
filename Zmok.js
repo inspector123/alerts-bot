@@ -59,6 +59,24 @@ volume1h varchar(50) NOT NULL,
 volume1d varchar(50) NOT NULL,
 PRIMARY KEY (id)
 );
+CREATE TABLE BlockEvents(id int NOT NULL AUTO_INCREMENT,
+blockNumber VARCHAR(100),
+symbol VARCHAR(100),
+contract VARCHAR(100),
+usdVolume VARCHAR(100),
+usdPrice VARCHAR(100),
+isBuy VARCHAR(100),
+txHash VARCHAR(100),
+wallet VARCHAR(100),
+router VARCHAR(100),
+logIndex VARCHAR(100),
+amountPoolTokenWithDecimals VARCHAR(100),
+amountDesiredTokenWithDecimals VARCHAR(100),
+desiredSymbol VARCHAR(100),
+poolSymbol VARCHAR(100),
+v3Orv2 VARCHAR(100), 
+PRIMARY KEY(id)
+);
 
     const body = req.body.map(c=>{
         const length = Object.values(c).length * 2;

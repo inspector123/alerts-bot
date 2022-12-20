@@ -27,6 +27,7 @@ app.listen(PORT, () => {
 
 const CHAT_ID_CHANNEL = -1001855095247;
 const CHAT_ID_DISCUSSION = -1001882676825;
+const CHAT_ID_CHANNEL_BETA = -1001839931719;
 const testnetStatus = false
 const localNodeIp = "192.168.0.228"
 const httpPort = "9535"
@@ -35,5 +36,5 @@ const wssPort = "9536"
 const httpUrl = `http://${localNodeIp}:${httpPort}`
 const wsUrl = `ws://${localNodeIp}:${wssPort}`
 
-const watcher = new Watcher(CHAT_ID_DISCUSSION, wallets, AlertBotKey, VolumeBotKey, testnetStatus, httpUrl, wsUrl);
+const watcher = new Watcher(CHAT_ID_CHANNEL_BETA, wallets, AlertBotKey, VolumeBotKey, testnetStatus, httpUrl, wsUrl);
 //watcher.runVolumeCheck(1)

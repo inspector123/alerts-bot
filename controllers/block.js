@@ -2,7 +2,7 @@ import AppError from '../utils/AppError.js';
 import conn from '../services/db.js';
 
 export const getAllBlocks = (req, res, next) => {
-    conn.query("SELECT * FROM Blocks", function (err, data, fields) {
+    conn.query("SELECT * FROM BlockEvents", function (err, data, fields) {
       if(err) return next(new AppError(err))
       res.status(200).json({
         status: "success",
@@ -15,10 +15,11 @@ export const getAllBlocks = (req, res, next) => {
    export const createBlock = async (req, res, next) => {
     if (!req.body) return next(new AppError("No form data found", 404));
     let { body } = req;
+    //console.log(body)
     const b = body.map(b=>Object.values(b));
     //console.log([b])
     const result = conn.query(
-      "INSERT INTO Blocks (blockNumber, symbol, contract, usdVolume, usdPrice, isBuy, txHash, wallet, router) VALUES(?);".repeat(req.body.length-1),body.map(b=>Object.values(b)), (err,data)=>{
+      "INSERT INTO BlockEvents (blockNumber,symbol,contract,usdVolume,usdPrice,isBuy,txHash,wallet,router,logIndex,amountPoolTokenWithDecimals,amountDesiredTokenWithDecimals,desiredSymbol,poolSymbol,v3Orv2, isEpiWallet) VALUES(?);".repeat(req.body.length-1),body.map(b=>Object.values(b)), (err,data)=>{
         if (err) res.status(500).json({status: "error", err})
         else {
           res.status(200).json({
@@ -61,7 +62,7 @@ export const getAllBlocks = (req, res, next) => {
       return next(new AppError("No block found", 404));
     }
     conn.query(
-      "SELECT * FROM Blocks WHERE blockNumber = ?",
+      "SELECT * FROM BlockEvents WHERE blockNumber = ?",
       [req.params.id],
       function (err, data, fields) {
         if (err) return next(new AppError(err, 500));
@@ -81,7 +82,7 @@ export const getAllBlocks = (req, res, next) => {
       return next(new AppError("No block id found", 404));
     }
     conn.query(
-      "DELETE FROM Blocks WHERE blockNumber=?",
+      "DELETE FROM BlockEvents WHERE blockNumber=?",
       [req.params.id],
       function (err, fields) {
         if (err) return next(new AppError(err, 500));
