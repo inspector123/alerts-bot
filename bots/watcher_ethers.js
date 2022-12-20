@@ -26,7 +26,8 @@ const USDC = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
 const USDT = "0xdAC17F958D2ee523a2206206994597C13D831ec7";
 const WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
 const DAI = "0x6B175474E89094C44Da98b954EedeAC495271d0F";
-const StablesOrEth = [USDC,USDT,DAI,WETH]
+const BUSD = "0x4Fabb145d64652a948d72533023f6E7A623C7C53"
+const StablesOrEth = [USDC,USDT,DAI,WETH,BUSD]
 
 //routers
 const UniswapV3Router2 = '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
@@ -39,7 +40,7 @@ const RainbowRouter = "0x00000000009726632680FB29d3F7A9734E3010E2"
 //check for sushiswap / rainbow swap functions
 const OneInchV4Router = "0x1111111254fb6c44bAC0beD2854e76F90643097d"
 const ShibaSwap = "0x03f7724180aa6b939894b5ca4314783b0b36b329"
-
+const acceptedRouters = [UniswapV2, UniswapV3Router2,OneInchV4Router,OneInchv5Router,KyberSwap, SushiSwapRouter,RainbowRouter]
 
 //Pools
 
@@ -60,12 +61,13 @@ const disallowedPools = [v3DaiUsdt,v3Usdt,v3USDC, v3_DaiUSDCv4, v2USDT, pancakeU
 
 const disallowedSymbols = ["BUSD", "USDT", "USDC", "DAI", "WETH"]
 
+
 //Contracts
 const mevBot1 = "0x000000000035b5e5ad9019092c665357240f594e"
 const mevBot2 = "0xe8c060f8052e07423f71d445277c61ac5138a2e5"
 
 
-const disallowedTo = [mevBot1, mevBot2]
+const disallowedTo = [mevBot1, mevBot2, "0x00000000008c4fb1c916e0c88fd4cc402d935e7d"]
 
 const daiContract = "0x6B175474E89094C44Da98b954EedeAC495271d0F"
 
@@ -119,6 +121,7 @@ export class Watcher {
         try {
             //Blocks
             let swaps = previousBlockSwaps.flat()
+            //console.log(swaps)
             const response = await api.post(`/api/blocks`, swaps)
             console.log(response.data.status)
             //console.log(currentBlockSwaps.flat())
@@ -165,7 +168,7 @@ export class Watcher {
             //console.log(b)
             //const response = await api.post(`/api/contracts`, contracts).then(r=>console.log(r)).catch(e=>console.log(e))
         } catch (e) {
-            console.log(e.response)
+            console.log(e.response.data.err.sql, e.response.data.err)
             this.previousBlockSwaps = []
 
         }
@@ -181,7 +184,6 @@ export class Watcher {
         let swaps = currentBlockSwaps.flat();
         if (swaps.length) {
             //console.log(swaps)
-            this.alertBot.telegram.sendMessage(this.chatId, `nothing`)
             const _swaps = swaps.filter(s=> {
                 return s && s.wallet && (wallets.includes(s.wallet) || wallets.includes(s.wallet.toLowerCase()))
             })
@@ -212,7 +214,7 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
             if (this.currentBlockSwaps.length) {
                 this.previousBlockSwaps = this.currentBlockSwaps;
                 this.currentBlockSwaps = [];
-                
+               // console.log(this.previousBlockSwaps)
                 await this.sendToApi(this.previousBlockSwaps);
                 await this.sendToTelegram(this.previousBlockSwaps);
                 this.previousBlockSwaps = [];
@@ -281,7 +283,7 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
             const receipt = await event.getTransactionReceipt();
             //return if kyberswap ; kyberswap will take care of it
             const addresses = receipt.logs.map(l=>l.address);
-            if (disallowedTo.includes(receipt.to)) return;
+            if (!acceptedRouters.includes(receipt.to)) return [];
             const swapLogs = receipt.logs.filter(log=>log.data.length >= 258 && !disallowedPools.includes(log.address))
             if (swapLogs.length) {
                 const v2Logs = swapLogs.filter(log=>log.data.length == 258 && log.topics.length == 3);
@@ -306,11 +308,11 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                     
                 }
                 if (v3Logs.length && v2Logs.length) {
-                    console.log('sort v2&v3')
-                    allSwaps = allSwaps.sort((a,b)=>{
-                        return a.usdVolume > b.usdVolume
-                    })
-                    allSwaps = allSwaps[0]
+                    // console.log('sort v2&v3')
+                    // allSwaps = allSwaps.sort((a,b)=>{
+                    //     return a.usdVolume > b.usdVolume
+                    // })
+                    // allSwaps = allSwaps[0]
                    //console.log(allSwaps)
                 }
                 this.currentBlockSwaps = [...this.currentBlockSwaps, allSwaps]
@@ -334,14 +336,9 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                 //get tokens from pool interface
                 const token0 = await _v2Pair.token0();
                 const token1 = await _v2Pair.token1();
+                if (StablesOrEth.includes(token0) && StablesOrEth.includes(token1)) return [];
                 const poolToken = StablesOrEth.includes(token0) ? token0 : token1;
                 const desiredToken = poolToken == token0 ? token1 : token0;
-
-                const _token0 = new ethers.Contract(token0, basicTokenABI, this.httpProvider);
-                const _token1 = new ethers.Contract(token1, basicTokenABI, this.httpProvider);
-                const token0Symbol = await _token0.symbol();
-                const token1Symbol = await _token1.symbol();
-                if (disallowedSymbols.includes(token0Symbol) && disallowedSymbols.includes(token1Symbol)) return;
                 
                 //set up contracts
                 const _desiredToken = new ethers.Contract(desiredToken, basicTokenABI, this.httpProvider);
@@ -379,7 +376,7 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                 const desiredDecimals = await _desiredToken.decimals();
                 const desiredSymbol = await _desiredToken.symbol();
                 const poolSymbol = await _poolToken.symbol();
-                const isStableCoin = [USDC,USDT,DAI].includes(poolToken);
+                const isStableCoin = [USDC,USDT,BUSD,DAI].includes(poolToken);
                 const isWeth = poolToken == WETH;
                 //v2
                 if (details.desiredTokenOut < details.desiredTokenIn)  { 
@@ -417,7 +414,7 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                         symbol: `${desiredSymbol}`,
                         contract: desiredToken,
                         usdVolume: usdVolume,
-                        usdPrice: `${usdPrice}`,
+                        usdPrice: usdPrice,
                         isBuy: `${transactionType}`,
                         txHash: receipt.transactionHash,
                         wallet: receipt.from,
@@ -515,7 +512,7 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                     symbol: `${desiredSymbol}`,
                     contract: desiredToken,
                     usdVolume: usdVolume,
-                    usdPrice: `${usdPrice}`,
+                    usdPrice: usdPrice,
                     isBuy: `${transactionType}`,
                     txHash: receipt.transactionHash,
                     wallet: receipt.from,
