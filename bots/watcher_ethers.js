@@ -120,7 +120,7 @@ export class Watcher {
         
         try {
             //Blocks
-            let swaps = previousBlockSwaps.flat().filter(b=>b)
+            let swaps = previousBlockSwaps.flat().filter(b=>b.blockNumber)
             //console.log(swaps)
             const response = await api.post(`/api/blocks`, swaps)
             console.log(response.data.status)
@@ -168,7 +168,7 @@ export class Watcher {
             //console.log(b)
             //const response = await api.post(`/api/contracts`, contracts).then(r=>console.log(r)).catch(e=>console.log(e))
         } catch (e) {
-            console.log(e.response.data.err.sql, previousBlockSwaps.flat().filter(b=>b))
+            console.log(e.response.data.err.sql, previousBlockSwaps.flat().filter(b=>b.blockNumber))
             this.previousBlockSwaps = []
 
         }
@@ -283,7 +283,7 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
             const receipt = await event.getTransactionReceipt();
             //return if kyberswap ; kyberswap will take care of it
             const addresses = receipt.logs.map(l=>l.address);
-            if (!acceptedRouters.includes(receipt.to)) return [];
+            if (!acceptedRouters.includes(receipt.to)) return {};
             const swapLogs = receipt.logs.filter(log=>log.data.length >= 258 && !disallowedPools.includes(log.address))
             if (swapLogs.length) {
                 const v2Logs = swapLogs.filter(log=>log.data.length == 258 && log.topics.length == 3);
@@ -336,7 +336,7 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                 //get tokens from pool interface
                 const token0 = await _v2Pair.token0();
                 const token1 = await _v2Pair.token1();
-                if (StablesOrEth.includes(token0) && StablesOrEth.includes(token1)) return [];
+                if (StablesOrEth.includes(token0) && StablesOrEth.includes(token1)) return {};
                 const poolToken = StablesOrEth.includes(token0) ? token0 : token1;
                 const desiredToken = poolToken == token0 ? token1 : token0;
                 
@@ -440,7 +440,7 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
         })
         //console.log(sortedSwaps)
         if (sortedSwaps.length) return sortedSwaps[0]
-        else return []
+        else return {}
     }
     async handlev3Logs(v3Logs, receipt) {
         //console.log(v3Logs)
@@ -485,7 +485,7 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                 const isWeth = poolToken == WETH;
                 //console.log(details.desiredTokenAmount < 0, details.poolTokenAmount < 0)
                 if (details.desiredTokenAmount < 0) {
-                    console.log('desired', details.desiredTokenAmount, details.desiredTokenAmount < 0, desiredSymbol, receipt.transactionHash);
+                
                     transactionType = 1;
                     if (isStableCoin) {
                         usdVolume = details.poolTokenAmount / 10**poolDecimals;
@@ -497,7 +497,7 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                     }
                 } 
                 if (details.poolTokenAmount < 0) {
-                    console.log('pool',details.poolTokenAmount, details.poolTokenAmount < 0, poolSymbol, receipt.transactionHash)
+                    
                     transactionType = 0;
                     if (isStableCoin) {
                         usdVolume = -1*details.poolTokenAmount / 10**poolDecimals;
@@ -537,7 +537,7 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
         })
         //console.log(sortedSwaps);
         if (sortedSwaps.length) return sortedSwaps[0]
-        else return []
+        else return {}
     }
     handleKyberSwapEvent(event) {
         this.blockTxHashes = [...this.blockTxHashes, event.transactionHash];
