@@ -251,10 +251,7 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
             //const rcpt = await event.getTransactionReceipt();
 
         })
-        _Kyberswap.on("Swapped", (sender, srcToken, dstToken, dstReceiver, spentAmount, returnAmount, event)=> {
-            console.log('swapped')
-            this.handleKyberSwapEvent(event);
-        })
+//
 
 
     }
@@ -263,35 +260,30 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
             const receipt = await event.getTransactionReceipt();
             //return if kyberswap ; kyberswap will take care of it
             const addresses = receipt.logs.map(l=>l.address);
-            if (addresses.includes(KyberSwap)) {
-                console.log('kyberswap will take care of it')
-                return;
-            } else {
-                if (disallowedTo.includes(receipt.to)) return;
-                const swapLogs = receipt.logs.filter(log=>log.data.length >= 258 && !disallowedPools.includes(log.address))
-                if (swapLogs.length) {
-                    const v2Logs = swapLogs.filter(log=>log.data.length == 258 && log.topics.length == 3);
-                    const v3Logs = swapLogs.filter(log=>log.data.length == 322 && log.topics.length == 3);
+            if (disallowedTo.includes(receipt.to)) return;
+            const swapLogs = receipt.logs.filter(log=>log.data.length >= 258 && !disallowedPools.includes(log.address))
+            if (swapLogs.length) {
+                const v2Logs = swapLogs.filter(log=>log.data.length == 258 && log.topics.length == 3);
+                const v3Logs = swapLogs.filter(log=>log.data.length == 322 && log.topics.length == 3);
 
-                    if (v2Logs.length) {
-                        //set up v2 pair
-                        //console.log(v2Logs)
-                        const transactions = await this.handlev2Logs(v2Logs, receipt);
-                        console.log(transactions)
-                        
+                if (v2Logs.length) {
+                    //set up v2 pair
+                    //console.log(v2Logs)
+                    const transactions = await this.handlev2Logs(v2Logs, receipt);
+                    console.log(transactions)
+                    
 
 
-                    }
-                    if (v3Logs.length) {
-                        const transactions = await this.handlev3Logs(v3Logs, receipt);
-                        console.log(transactions)
-                        
-                       
-                    }
-                    if (v3Logs.length && v2Logs.length) {
-                        console.log('klasjfflkj')
-                        console.log(event.transactionHash)
-                    }
+                }
+                if (v3Logs.length) {
+                    const transactions = await this.handlev3Logs(v3Logs, receipt);
+                    console.log(transactions)
+                    
+                    
+                }
+                if (v3Logs.length && v2Logs.length) {
+                    console.log('klasjfflkj')
+                    console.log(event.transactionHash)
                 }
             }
         } catch(e) {
