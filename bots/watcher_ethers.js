@@ -77,7 +77,7 @@ export class Watcher {
     UniV2Factory;
     etherPrice;
     currentBlockSwaps = [];
-    started; 
+    started;
 
     constructor(chatId, wallets, alertBotKey, volumeBotKey, testnet, httpUrl, wsUrl) {
         this.chatId = chatId;
@@ -193,10 +193,12 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
             console.log('latest block: ', block)
             this.blockTxHashes = [];
 
-            // if (this.currentBlockSwaps.length) {
+            if (this.currentBlockSwaps.length) {
                 
-            //     this.sendToApi(this.currentBlockSwaps);
-            //     //this.sendToTelegram(this.currentBlockSwaps);
+                //this.sendToApi(this.currentBlockSwaps);
+                console.log(this.currentBlockSwaps)
+                //this.sendToTelegram(this.currentBlockSwaps);
+            }
 
 
         })
@@ -215,7 +217,7 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
             this.blockTxHashes = [...this.blockTxHashes, event.transactionHash]
 
             if (address == UniswapV3Router2
-                || address  == OneInchv5Router || address == UniswapV2 || address == OneInchV4Router) {
+                || address  == OneInchv5Router || address == UniswapV2 || address == OneInchV4Router || address == KyberSwapInBetweenContract) {
                     this.grabSwap(event);
                 }
             
@@ -227,7 +229,7 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
             }
             this.blockTxHashes = [...this.blockTxHashes, event.transactionHash]
             if (address == UniswapV3Router2
-                || address  == OneInchv5Router || address == UniswapV2 || address == OneInchV4Router) {
+                || address  == OneInchv5Router || address == UniswapV2 || address == OneInchV4Router || address == KyberSwapInBetweenContract) {
                     this.grabSwap(event);
                 }
 
@@ -265,19 +267,21 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
             if (swapLogs.length) {
                 const v2Logs = swapLogs.filter(log=>log.data.length == 258 && log.topics.length == 3);
                 const v3Logs = swapLogs.filter(log=>log.data.length == 322 && log.topics.length == 3);
-
+                const allSwaps = []
                 if (v2Logs.length) {
                     //set up v2 pair
                     //console.log(v2Logs)
-                    const transactions = await this.handlev2Logs(v2Logs, receipt);
-                    console.log(transactions)
+                    const v2Swaps = await this.handlev2Logs(v2Logs, receipt);
+                    this.currentBlockSwaps = [...this.currentBlockSwaps, v2Swaps]
+
                     
 
 
                 }
                 if (v3Logs.length) {
-                    const transactions = await this.handlev3Logs(v3Logs, receipt);
-                    console.log(transactions)
+                    const v3Swaps = await this.handlev3Logs(v3Logs, receipt);
+                    //console.log(transactions)
+                    this.currentBlockSwaps = [...this.currentBlockSwaps, v3Swaps]
                     
                     
                 }
@@ -285,6 +289,7 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                     console.log('klasjfflkj')
                     console.log(event.transactionHash)
                 }
+                //return allSwaps
             }
         } catch(e) {
             console.log(e, event.transactionHash)
