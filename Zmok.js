@@ -71,12 +71,9 @@ txHash VARCHAR(100),
 wallet VARCHAR(100),
 router VARCHAR(100),
 logIndex VARCHAR(100),
-amountPoolTokenWithDecimals VARCHAR(100),
-amountDesiredTokenWithDecimals VARCHAR(100),
-desiredSymbol VARCHAR(100),
-poolSymbol VARCHAR(100),
 v3Orv2 VARCHAR(100), 
 isEpiWallet VARCHAR(100),
+etherPrice double,
 PRIMARY KEY(id)
 );
 

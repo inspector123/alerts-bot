@@ -22,7 +22,7 @@ export const getAllBlocks = (req, res, next) => {
     //console.log(_body)
     //console.log([b])
     const result = conn.query(
-      "INSERT INTO BlockEvents (blockNumber,symbol,contract,usdVolume,usdPrice,isBuy,txHash,wallet,router,logIndex,amountPoolTokenWithDecimals,amountDesiredTokenWithDecimals,desiredSymbol,poolSymbol,v3Orv2, isEpiWallet) VALUES(?);".repeat(_body.length),_body, (err,data)=>{
+      "INSERT INTO BlockEvents (blockNumber,symbol,contract,usdVolume,usdPrice,isBuy,txHash,wallet,router,logIndex,v3Orv2,isEpiWallet,etherPrice) VALUES(?);".repeat(_body.length),_body, (err,data)=>{
         if (err) res.status(500).json({status: "error", err})
         else {
           res.status(200).json({

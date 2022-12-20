@@ -120,8 +120,8 @@ export class Watcher {
         
         try {
             //Blocks
-            let swaps = previousBlockSwaps.flat()
-            //console.log(swaps)
+            let swaps = previousBlockSwaps.flat().filter(b=>b)
+            console.log(swaps)
             const response = await api.post(`/api/blocks`, swaps)
             console.log(response.data.status)
             //console.log(currentBlockSwaps.flat())
@@ -168,7 +168,7 @@ export class Watcher {
             //console.log(b)
             //const response = await api.post(`/api/contracts`, contracts).then(r=>console.log(r)).catch(e=>console.log(e))
         } catch (e) {
-            console.log(e.response.data.err.sql, e.response.data.err)
+            console.log(e.response.data.err.sql, previousBlockSwaps.flat().filter(b=>b))
             this.previousBlockSwaps = []
 
         }
@@ -420,13 +420,9 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                         wallet: receipt.from,
                         router: this.routerName(receipt.to),
                         logIndex: v2Logs[i].logIndex,
-                        amountPoolTokenWithDecimals,
-                        amountDesiredTokenWithDecimals,
-                        desiredSymbol,
-                        poolSymbol,
                         v3Orv2: "v2",
-                        isEpiWallet: wallets.includes(receipt.from)
-
+                        isEpiWallet: wallets.includes(receipt.from),
+                        etherPrice: this.etherPrice
                     }
                     v2Swaps = [...v2Swaps, v2SwapsToAdd]
                 }
@@ -518,13 +514,9 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                     wallet: receipt.from,
                     router: this.routerName(receipt.to),
                     logIndex: v3Logs[i].logIndex,
-                    amountDesiredTokenWithDecimals,
-                    amountPoolTokenWithDecimals,
-                    desiredSymbol,
-                    poolSymbol,
                     v3Orv2: "v3",
-                    isEpiWallet: wallets.includes(receipt.from)
-
+                    isEpiWallet: wallets.includes(receipt.from),
+                    etherPrice: this.etherPrice
                 }
                 v3Swaps = [...v3Swaps, v3SwapsToAdd]
 
