@@ -428,7 +428,7 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                         router: this.routerName(receipt.to),
                         logIndex: v2Logs[i].logIndex,
                         v3Orv2: "v2",
-                        isEpiWallet: wallets.includes(receipt.from),
+                        isEpiWallet: wallets.includes(receipt.from) || wallets.includes(receipt.from.toLowerCase()),
                         etherPrice: this.etherPrice
                     }
                     v2Swaps = [...v2Swaps, v2SwapsToAdd]
