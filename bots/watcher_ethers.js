@@ -12,10 +12,9 @@ import WETHABI from './abi/wethabi.json' assert { type: "json" };
 import univ3v2ABI from './abi/univ3v2abi.json' assert { type: "json" };
 import tokenABI from './abi/tokenABI.json' assert { type: "json" };
 import univ2PairABI from './abi/univ2PairABI.json' assert { type: "json" };
-import uniV3PoolABI from './abi/uniV3PoolABI.json' assert { type: "json" };
+import univ3PoolABI from './abi/uniV3PoolABI.json' assert { type: "json" };
 import KyberswapABI from './abi/KyberswapABI.json' assert { type: "json" };
 import basicTokenABI from './abi/basicTokenABI.json' assert { type: "json" };
-import { solidityKeccak256 } from 'ethers/lib/utils';
 
 
 //import { Interface } from 'ethers';
@@ -37,7 +36,9 @@ const UniswapV2 = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
 const SushiSwapRouter = "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"
 const KyberSwapInBetweenContract = "0x4Fe5b965E3BD76eFf36280471030ef9b0E6e2C1D"
 const RainbowRouter = "0x00000000009726632680FB29d3F7A9734E3010E2"
+//check for sushiswap / rainbow swap functions
 const OneInchV4Router = "0x1111111254fb6c44bAC0beD2854e76F90643097d"
+const ShibaSwap = "0x03f7724180aa6b939894b5ca4314783b0b36b329"
 
 
 //Pools
@@ -46,7 +47,10 @@ const v3DaiUsdt = "0x6f48ECa74B38d2936B02ab603FF4e36A6C0E3A77"
 const v3Usdt = "0x11b815efB8f581194ae79006d24E0d814B7697F6"
 const v3USDC = "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640"
 const v3_DaiUSDCv4 = "0x5777d92f208679DB4b9778590Fa3CAB3aC9e2168"
-const disallowedPools = [v3DaiUsdt,v3Usdt,v3USDC, v3_DaiUSDCv4]
+const v2USDT = "0x0d4a11d5EEaaC28EC3F61d100daF4d40471f1852"
+const pancakeUSDT = "0x17C1Ae82D99379240059940093762c5e4539aba5"
+const pancakeUSDC = "0x2E8135bE71230c6B1B4045696d41C09Db0414226"
+const disallowedPools = [v3DaiUsdt,v3Usdt,v3USDC, v3_DaiUSDCv4, v2USDT, pancakeUSDT, pancakeUSDC]
 
 //Contracts
 const mevBot1 = "0x000000000035b5e5ad9019092c665357240f594e"
@@ -203,17 +207,25 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
         //let i = 0;
 
         _WETH.on("Deposit", async (address, amount, event) => {
-            if (this.blockTxHashes.includes(event.transactionHash)) return;
-            else {
-                if (address == UniswapV3Router2
-                    || address  == OneInchv5Router || address == UniswapV2 || address == OneInchV4Router) {
-                        this.grabSwap(event);
-                    }
+            //console.log(event)
+            if (this.blockTxHashes.includes(event.transactionHash)) {
+                console.log('skipping')
+                return;
             }
+            this.blockTxHashes = [...this.blockTxHashes, event.transactionHash]
+
+            if (address == UniswapV3Router2
+                || address  == OneInchv5Router || address == UniswapV2 || address == OneInchV4Router) {
+                    this.grabSwap(event);
+                }
+            
 
         })
         _WETH.on("Withdrawal", async (address, amount, event) => {
-            if (this.blockTxHashes.includes(event.transactionHash)) return;
+            if (this.blockTxHashes.includes(event.transactionHash)) {
+                return;
+            }
+            this.blockTxHashes = [...this.blockTxHashes, event.transactionHash]
             if (address == UniswapV3Router2
                 || address  == OneInchv5Router || address == UniswapV2 || address == OneInchV4Router) {
                     this.grabSwap(event);
@@ -221,13 +233,19 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
 
         })
         _USDC.on("Transfer", async (to,from,amount,event)=>{
-            if (this.blockTxHashes.includes(event.transactionHash)) return;
+            if (this.blockTxHashes.includes(event.transactionHash)) {
+                return;
+            }
+            this.blockTxHashes = [...this.blockTxHashes, event.transactionHash]
             this.grabSwap(event);
             //const rcpt = await event.getTransactionReceipt();
 
         })
         _USDT.on("Transfer", async (to,from,amount,event)=>{
-            if (this.blockTxHashes.includes(event.transactionHash)) return;
+            if (this.blockTxHashes.includes(event.transactionHash)) {
+                return;
+            }
+            this.blockTxHashes = [...this.blockTxHashes, event.transactionHash]
             this.grabSwap(event);
             
             //const rcpt = await event.getTransactionReceipt();
@@ -245,126 +263,29 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
             const receipt = await event.getTransactionReceipt();
             //return if kyberswap ; kyberswap will take care of it
             const addresses = receipt.logs.map(l=>l.address);
-            //console.log(receipt.logs)
             if (addresses.includes(KyberSwap)) {
                 console.log('kyberswap will take care of it')
                 return;
             } else {
-                this.blockTxHashes = [...this.blockTxHashes, event.transactionHash] 
                 if (disallowedTo.includes(receipt.to)) return;
-                const swapLogs = receipt.logs.filter(log=>log.data.length >= 258 && !disallowedPools.includes(log.address));
-                if (swapLogs) {
-                    const v2Logs = swapLogs.filter(log=>log.data.length == 258 
-                        && !(log.topics[1] == UniswapV2 && log.topics[2] == UniswapV2
-                            ));
-                    const v3Logs = swapLogs.filter(log=>log.data.length == 322);
+                const swapLogs = receipt.logs.filter(log=>log.data.length >= 258 && !disallowedPools.includes(log.address))
+                if (swapLogs.length) {
+                    const v2Logs = swapLogs.filter(log=>log.data.length == 258 && log.topics.length == 3);
+                    const v3Logs = swapLogs.filter(log=>log.data.length == 322 && log.topics.length == 3);
 
                     if (v2Logs.length) {
                         //set up v2 pair
-                        const _interface = new utils.Interface(univ2PairABI);
-                        const _v2Pair = new ethers.Contract(v2Logs[0].address, univ2PairABI, this.httpProvider);
+                        //console.log(v2Logs)
+                        const transactions = await this.handlev2Logs(v2Logs, receipt);
+                        console.log(transactions)
                         
-                        //get tokens from pool interface
-                        const token0 = await _v2Pair.token0();
-                        const token1 = await _v2Pair.token1();
-                        const desiredToken = StablesOrEth.includes(token0) ? token1 : token0;
-                        const poolToken = StablesOrEth.includes(token0) ? token0: token1;
-
-                        //set up contracts
-                        const _desiredToken = new ethers.Contract(ercToken, basicTokenABI, this.httpProvider);
-                        const _poolToken = new ethers.Contract(poolToken, basicTokenABI, this.httpProvider);
-                    
-
-                        //get swap log for v2
-                        const parsedLog = _interface.parseLog(v2Logs[0]);
-                        // const details = {
-                        //     amount0In: parsedLog.args.amount0In,
-                        //     amount1In: parsedLog.args.amount1In,
-                        //     amount0Out: parsedLog.args.amount0Out,
-                        //     amount1Out: parsedLog.args.amount1Out
-                        // }
-
-                        //convert amount0In, amount0Out,amount1In, amount1Out to desiredToken,poolToken
-
-                        let details = {
-                            poolTokenOut: 0,
-                            poolTokenIn: 0,
-                            desiredTokenIn: 0,
-                            desiredTokenOut: 0
-                        }
-
-                        if (poolToken == token0) {
-                            details.poolTokenOut = amount0Out,
-                            details.poolTokenIn = amount0In,
-                            details.desiredTokenIn = amount1In,
-                            details.desiredTokenOut = amount1Out
-                        }
-                        else {
-                            //poolToken == token1
-                            details.desiredTokenIn = amount0In,
-                            details.desiredTokenOut = amount0Out,
-                            details.poolTokenIn = amount1In,
-                            details.poolTokenOut = amount1Out
-                        }
-                        let transactionType;
-                        if (details.desiredTokenOut < details.desiredTokenIn)  { 
-                            transactionType = "buy";
-                        }
-                        let usdVolume;
-                        const symbol = await _desiredToken.symbol();
-                        const poolDecimals = await _poolToken.decimals();
-                        const desiredDecimals = await _desiredToken.decimals();
-                        const isStableCoin = [USDC,USDT,DAI].includes(poolToken);
-                        const isWeth = poolToken == WETH;
-                        if (isStableCoin) {
-                            usdVolume = details.poolTokenOut / 10**poolDecimals;
-                            usdPrice = usdVolume ;
-                        } 
-                        if (isWeth) {
-                            usdVolume = (details.poolTokenOut / 10**poolDecimals ) * this.etherPrice;
-                        }
-
-                             const blockObject =
-                            {
-                                blockNumber: receipt.blockNumber,
-                                symbol: `${symbol}`,
-                                contract: desiredToken,
-                                usdVolume: `${usdVolume}`,
-                                usdPrice: `${usdPrice}`,
-                                isBuy: `${isDeposit}`,
-                                txHash: receipt.transactionHash,
-                                wallet: receipt.from,
-                                router: this.routerName(receipt.to)
-                            }
-
-
-                        // //determine buy or sell
-                        // let transactionType;
-                        // if ((!details.amount0Out && desiredToken == token0) || (!details.amount1Out && desiredToken == token1)) {
-                        //     transactionType == "buy";
-                        //     const symbol = await _desiredToken.symbol();
-                        //     const usdVolume = [USDC,USDT,DAI].includes(poolToken) ? 
-                        //     const blockObject =
-                        //     {
-                        //         blockNumber: receipt.blockNumber,
-                        //         symbol: `${symbol}`,
-                        //         contract: desiredToken,
-                        //         usdVolume: `${usdVolume}`,
-                        //         usdPrice: `${usdPrice}`,
-                        //         isBuy: `${isDeposit}`,
-                        //         txHash: receipt.transactionHash,
-                        //         wallet: receipt.from,
-                        //         router: this.routerName(receipt.to)
-                        //     }
-
-                        // }
-                        // if (details.amount0Out && ercToken == token0) transactionType == "sell";
 
 
                     }
                     if (v3Logs.length) {
-                       const _interface = new utils.Interface(uniV3PoolABI);
-                       const parsedLog = _interface.parseLog(v3Logs[0]);
+                        const transactions = await this.handlev3Logs(v3Logs, receipt);
+                        console.log(transactions)
+                        
                        
                     }
                     if (v3Logs.length && v2Logs.length) {
@@ -372,12 +293,209 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                         console.log(event.transactionHash)
                     }
                 }
-                
-                
             }
         } catch(e) {
-           
+            console.log(e, event.transactionHash)
         }
+    }
+        
+
+    async handlev2Logs(v2Logs, receipt) {
+        let v2Swaps = []
+        for (let i in v2Logs) {
+            //blockObject
+            const _interface = new utils.Interface(univ2PairABI);
+            const _v2Pair = new ethers.Contract(v2Logs[i].address, univ2PairABI, this.httpProvider);
+            //get swap log for v2
+            const parsedLog = _interface.parseLog(v2Logs[i]);
+            if (parsedLog && parsedLog.signature == 'Swap(address,uint256,uint256,uint256,uint256,address)') {
+                //get tokens from pool interface
+                const token0 = await _v2Pair.token0();
+                const token1 = await _v2Pair.token1();
+                const poolToken = StablesOrEth.includes(token0) ? token0 : token1;
+                const desiredToken = poolToken == token0 ? token1 : token0;
+
+                //set up contracts
+                const _desiredToken = new ethers.Contract(desiredToken, basicTokenABI, this.httpProvider);
+                const _poolToken = new ethers.Contract(poolToken, basicTokenABI, this.httpProvider);
+
+                
+                //v2
+                let details = {
+                    poolTokenOut: 0,
+                    poolTokenIn: 0,
+                    desiredTokenIn: 0,
+                    desiredTokenOut: 0
+                }
+
+                if (poolToken == token0) {
+                    details.poolTokenOut = parsedLog.args.amount0Out,
+                    details.poolTokenIn = parsedLog.args.amount0In,
+                    details.desiredTokenIn = parsedLog.args.amount1In,
+                    details.desiredTokenOut = parsedLog.args.amount1Out
+                }
+                else {
+                    //poolToken = token1
+                    details.desiredTokenIn = parsedLog.args.amount0In,
+                    details.desiredTokenOut = parsedLog.args.amount0Out,
+                    details.poolTokenIn = parsedLog.args.amount1In,
+                    details.poolTokenOut = parsedLog.args.amount1Out
+                }
+                //console.log(details)
+                let transactionType,usdVolume,usdPrice, amountPoolTokenWithDecimals, amountDesiredTokenWithDecimals;
+
+                //v3&v2
+                const symbol = await _desiredToken.symbol();
+                const poolDecimals = await _poolToken.decimals();
+                const desiredDecimals = await _desiredToken.decimals();
+                const desiredSymbol = await _desiredToken.symbol();
+                const poolSymbol = await _poolToken.symbol();
+                const isStableCoin = [USDC,USDT,DAI].includes(poolToken);
+                const isWeth = poolToken == WETH;
+                //v2
+                if (details.desiredTokenOut < details.desiredTokenIn)  { 
+                    transactionType = "buy";
+                    amountPoolTokenWithDecimals = details.poolTokenOut / 10**poolDecimals
+                    amountDesiredTokenWithDecimals = details.desiredTokenIn / 10**desiredDecimals
+                    if (isStableCoin) {
+                        usdVolume = amountPoolTokenWithDecimals;
+                        usdPrice = amountPoolTokenWithDecimals / amountDesiredTokenWithDecimals;
+                    } 
+                    if (isWeth) {
+                        usdVolume = amountPoolTokenWithDecimals * this.etherPrice;
+                        usdPrice = amountPoolTokenWithDecimals / amountDesiredTokenWithDecimals * this.etherPrice;
+                    }
+
+                } else {
+                    transactionType = "sell";
+                    amountPoolTokenWithDecimals = details.poolTokenIn / 10**poolDecimals;
+                    amountDesiredTokenWithDecimals = details.desiredTokenOut / 10**desiredDecimals;
+                    if (isStableCoin) {
+                        usdVolume = amountPoolTokenWithDecimals
+                        usdPrice = amountPoolTokenWithDecimals / amountDesiredTokenWithDecimals;
+                    } 
+                    if (isWeth) {
+                        usdVolume = amountPoolTokenWithDecimals * this.etherPrice;
+                        usdPrice = amountPoolTokenWithDecimals / amountDesiredTokenWithDecimals * this.etherPrice;
+                    }
+                }
+
+                //v3
+
+
+                    const v2SwapsToAdd = {
+                        blockNumber: receipt.blockNumber,
+                        symbol: `${desiredSymbol}`,
+                        contract: desiredToken,
+                        usdVolume: `${usdVolume}`,
+                        usdPrice: `${usdPrice}`,
+                        isBuy: `${transactionType}`,
+                        txHash: receipt.transactionHash,
+                        wallet: receipt.from,
+                        router: this.routerName(receipt.to),
+                        logIndex: v2Logs[i].logIndex,
+                        amountPoolTokenWithDecimals,
+                        amountDesiredTokenWithDecimals,
+                        desiredSymbol,
+                        poolSymbol,
+                        v3Orv2: "v2"
+                    }
+                    v2Swaps = [...v2Swaps, v2SwapsToAdd]
+                }
+        }
+        return v2Swaps
+    }
+    async handlev3Logs(v3Logs, receipt) {
+        //console.log(v3Logs)
+        let v3Swaps = []
+        for (let i in v3Logs) {
+            const _interface = new utils.Interface(univ3PoolABI);
+            const _v3Pair = new ethers.Contract(v3Logs[i].address, univ2PairABI, this.httpProvider);
+            //get swap log for v2
+            const parsedLog = _interface.parseLog(v3Logs[i]);
+            // console.log(parsedLog)
+            if (parsedLog && parsedLog.signature == 'Swap(address,address,int256,int256,uint160,uint128,int24)') {
+                //get tokens from pool interface
+                const token0 = await _v3Pair.token0();
+                const token1 = await _v3Pair.token1();
+                const poolToken = StablesOrEth.includes(token0) ? token0 : token1;
+                const desiredToken = poolToken == token0 ? token1 : token0;
+                let transactionType, usdVolume, usdPrice,amountPoolTokenWithDecimals, amountDesiredTokenWithDecimals;;
+                //set up contracts
+                const _desiredToken = new ethers.Contract(desiredToken, basicTokenABI, this.httpProvider);
+                const _poolToken = new ethers.Contract(poolToken, basicTokenABI, this.httpProvider);
+                const poolDecimals = await _poolToken.decimals();
+                const desiredDecimals = await _desiredToken.decimals();
+                const desiredSymbol = await _desiredToken.symbol();
+                const poolSymbol = await _poolToken.symbol();
+
+                let details = {
+                    desiredTokenAmount: 0,
+                    poolTokenAmount: 0
+                };
+                if (desiredToken == token0) {
+                    details.desiredTokenAmount = parsedLog.args.amount0,
+                    details.poolTokenAmount = parsedLog.args.amount1
+                    
+                }
+                else {
+                    details.desiredTokenAmount = parsedLog.args.amount1,
+                    details.poolTokenAmount = parsedLog.args.amount0
+                }
+                amountDesiredTokenWithDecimals = details.desiredTokenAmount / 10**desiredDecimals;
+                amountPoolTokenWithDecimals = details.poolTokenAmount / 10 ** poolDecimals;
+                const isStableCoin = [USDC,USDT,DAI].includes(poolToken);
+                const isWeth = poolToken == WETH;
+                //console.log(details.desiredTokenAmount < 0, details.poolTokenAmount < 0)
+                if (details.desiredTokenAmount < 0) {
+                    transactionType = "sell";
+                    if (isStableCoin) {
+                        usdVolume = details.poolTokenAmount / 10**poolDecimals;
+                        usdPrice = details.poolTokenAmount / -1*details.desiredTokenAmount;
+                    } 
+                    if (isWeth) {
+                        usdVolume = (details.poolTokenAmount  * this.etherPrice / 10**poolDecimals );
+                        usdPrice = (details.poolTokenAmount * this.etherPrice )/ -1*details.desiredTokenAmount;
+                    }
+                } 
+                if (details.poolTokenAmount < 0) {
+                    transactionType = "buy";
+                    if (isStableCoin) {
+                        usdVolume = details.poolTokenAmount / 10**poolDecimals;
+                        usdPrice = -1*details.poolTokenAmount / details.desiredTokenAmount;
+                    } 
+                    if (isWeth) {
+                        usdVolume = (details.poolTokenAmount / 10**poolDecimals ) * this.etherPrice;
+                        usdPrice = -1*details.poolTokenAmount / details.desiredTokenAmount * this.etherPrice;
+                    }
+                }
+                //v3
+
+
+                const v3SwapsToAdd =
+                {
+                    blockNumber: receipt.blockNumber,
+                    symbol: `${desiredSymbol}`,
+                    contract: desiredToken,
+                    usdVolume: `${usdVolume}`,
+                    usdPrice: `${usdPrice}`,
+                    isBuy: `${transactionType}`,
+                    txHash: receipt.transactionHash,
+                    wallet: receipt.from,
+                    router: this.routerName(receipt.to),
+                    logIndex: v3Logs[i].logIndex,
+                    amountDesiredTokenWithDecimals,
+                    amountPoolTokenWithDecimals,
+                    desiredSymbol,
+                    poolSymbol,
+                    v3Orv2: "v3"
+
+                }
+                v3Swaps = [...v3Swaps, v3SwapsToAdd]
+
+            }
+        }
+        return v3Swaps;
     }
     handleKyberSwapEvent(event) {
         this.blockTxHashes = [...this.blockTxHashes, event.transactionHash];
@@ -394,67 +512,10 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                 return "Kyberswap";
             case UniswapV2:
                 return "UniswapV2";
+            case OneInchV4Router: 
+                return "1InchV4";
             default: 
                 return address;
-        }
-    }
-    //if isDeposit is false then it's a withdrawal
-    async parseTokenTransferFromWETHLog(event, isDeposit, amountWETH) {
-        const receipt = await event.getTransactionReceipt();
-        //prevent duplicates
-        if (this.currentBlockSwaps.map(b=>b.txHash).includes(receipt.transactionHash)) return;
-
-        const fixedLogs = receipt.logs.map(log=>{
-            log.topics = log.topics.map(t=>t.replace('0x000000000000000000000000', '0x'));
-            return log
-        }).filter(log=>log.topics.length == 3);
-        if (receipt.to == RainbowRouter) return null;
-        let matchingTokenLog = [];
-        //need custom code where it will look for multiple deposits and withdrawals and choose whichever is largest
-        // --- shinja etc transfers are not choosing the right deposit vs withdrawal.
-        if (isDeposit) {
-            matchingTokenLog = fixedLogs.filter(log=>{
-                return log.topics[2] == receipt.from.toLowerCase()
-                        && log.topics[1] != UniswapV3Router2.toLowerCase()
-                        && log.topics[1] != OneInchv5Router.toLowerCase();
-             })
-        } else {
-            matchingTokenLog = fixedLogs.filter(log=>{
-                return log.topics[1] == receipt.from.toLowerCase()
-                    && log.topics[2] != receipt.to.toLowerCase()
-                    //block sends to contract
-                    && log.topics[2] != log.address.toLowerCase();
-            })
-
-        }
-        try { 
-            const _token = new ethers.Contract(matchingTokenLog[0].address, tokenABI, this.httpProvider)
-            let name = await _token.name();
-            let symbol = await _token.symbol();
-            let decimals =  await _token.decimals();
-            let amountTokenSent = ethers.BigNumber.from(matchingTokenLog[0].data) / 10**(decimals)
-            const usdVolume = amountWETH * this.etherPrice;
-            const usdPrice = amountWETH / amountTokenSent * this.etherPrice;
-
-            return {
-                blockNumber: receipt.blockNumber,
-                symbol: `${symbol}`,
-                contract: matchingTokenLog[0].address,
-                usdVolume: `${usdVolume}`,
-                usdPrice: `${usdPrice}`,
-                isBuy: `${isDeposit}`,
-                txHash: receipt.transactionHash,
-                wallet: receipt.from,
-                router: this.routerName(receipt.to)
-            }
-            //
-
-            
-        } catch(e) {
-            console.log(receipt.transactionHash)
-            console.log(e, `isDeposit ? ${isDeposit}`, receipt.transactionHash, matchingTokenLog, fixedLogs)
-            console.log(wallets.includes(receipt.from), 'wallet in wallets')
-            return null;
         }
     }
 
@@ -511,88 +572,12 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
             
         })
             
-        
-        // })
-        // this.volumeBot.command('start', ctx => {
-        //     this.volumeBot.telegram.sendMessage(this.chatId, `Welcome.`, {
-        //     })
-            
-            
-        
-        // })
-        // this.volumeBot.command('r', ctx=>{
-        //     if (!this.running) {
-        //         this.volumeBot.telegram.sendMessage(this.chatId, `Running`)
-        //         this.runBlockCheck(true)
-        //         this.running = true
-        //     } else {
-        //         this.volumeBot.telegram.sendMessage(this.chatId, `Already running.`)
-
-        //     }
-        // })
-
-        // this.volumeBot.command('v', async (ctx)=>{
-        //     if (!this.volumeRunning && !this.interrupt) {
-        //         console.log('running volume')
-        //         const blocks = ctx.message.text.slice(3)
-        //         console.log(blocks[0])
-        //         this.volumeBot.telegram.sendMessage(this.chatId, `running volume check on last ${blocks} blocks. Time: ${new Date().getTime()/ 1000}`)
-        //         this.volumeRunning = true
-        //         this.runVolumeCheck(blocks)
-                
-                
-        //     }
-        //     else {
-        //         this.volumeBot.telegram.sendMessage(this.chatId, `already running volume check`)
-        //     }
-        // })
+       
 
         this.alertBot.launch();
         this.volumeBot.launch();
     }
 
-
-    async volumeLookBack(blocks) {
-        let latestBlock = await this.web3Http.eth.getBlockNumber();
-        let details = []
-        for (let i = 0; i < blocks; i++) {
-            let block = await this.web3Http.eth.getBlock(latestBlock - i);
-            // console.log(block)
-            if (block) {
-                let { transactions } = block;
-                let allBlockTransactions = []
-                const _block = await Promise.all(transactions.map(async (txHash, index) => {
-                    const response = await new Promise(resolve => {
-                        setTimeout(resolve, index*15);
-                      }).then(async ()=>{
-                        const result = await this.decodeLogs(txHash, true).then(r=>{
-                            if (r) {
-                                allBlockTransactions.push(r);
-                            }
-                        })
-                    })
-                    return
-                }))
-                //console.log(allBlockTransactions, "all block transactions")
-
-                details = [...details, allBlockTransactions]
-            }
-        }
-        return details
-    }
-
-
-    async runVolumeCheck(num) {
-        const curr = new Date().getTime()/1000
-        console.log(`started at ${new Date().getTime()/1000}`)
-        await this.volumeLookBack(num).then(async r=>{
-            await api.post('/api/blocks', r);
-            console.log(`finished at ${new Date().getTime()/ 1000}`)
-            const end = new Date().getTime()/ 1000
-            console.log(`total time: ${end-curr}`)
-            this.volumeRunning = false
-        })
-    }
     
     decodeLock(tx) {
         //not implemented. 
@@ -605,41 +590,6 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
         //not implemented
         return;
     }
-
-
-    // SHOULD HAVE SENT TO, RECEIVED FROM
-    sendTelegramSwapMessage = (tx, swapDetails, tokenPairContract, tokenContractAddress) => {
-        
-            this.alertBot.telegram.sendMessage(this.chatId, 
-    `New Transaction from ${tx.from}! 
-TX HASH: https://etherscan.io/tx/${tx.transactionHash}
-Details: 
-${swapDetails.sent ? `Sent: ${swapDetails.sent?.amount} ${swapDetails.sent?.symbol}` : ``} /
-${swapDetails.received ? `Received: ${swapDetails.received?.amount} ${swapDetails.received?.symbol}` : ``}
-Router: ${this.routerName(tx.to)}
-
-Wallet Link: https://etherscan.io/address/${tx.from}
-            `)
-        // } else if (tx.to == OneInchv5Router) {
-        //     this.alertBot.telegram.sendMessage(this.chatId, `New 1Inchv5 Transaction from ${tx.from}!
-        //     https://etherscan.io/tx/${tx.transactionHash}`)
-        // } 
-        // else if (tx.to == KyberSwap) {
-        //     this.alertBot.telegram.sendMessage(this.chatId, `New KyberSwap Transaction from ${tx.from}
-        //     https://etherscan.io/tx/${tx.transactionhash}`)
-        // } else {
-        //     this.alertBot.telegram.sendMessage(this.chatId, `New Transaction from ${tx.from}!
-        //     https://etherscan.io/tx/${tx.transactionhash}
-            
-        //     Tx Input: ${tx.input}
-            
-            
-            
-        //     `)
-        // }
-    }
-    
-
 }
 
 /*
