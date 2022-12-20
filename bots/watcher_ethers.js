@@ -181,14 +181,9 @@ export class Watcher {
     }
 
     async sendToTelegram(currentBlockSwaps) {
-        let swaps = currentBlockSwaps.flat();
+        let swaps = currentBlockSwaps.flat().filter(s=>s.blockNumber).filter(s=>s.isEpiWallet);
         if (swaps.length) {
-            //console.log(swaps)
-            const _swaps = swaps.filter(s=> {
-                return s && s.wallet && (wallets.includes(s.wallet) || wallets.includes(s.wallet.toLowerCase()))
-            })
-            console.log(_swaps)
-            _swaps.forEach(swap=> {
+            swaps.forEach(swap=> {
                 this.alertBot.telegram.sendMessage(this.chatId, 
                     `New transaction from ${swap.wallet} on ${swap.router}
 ${swap.isBuy ? `Bought ` : `Sold`} $${swap.usdVolume} worth of ${swap.symbol}
@@ -524,7 +519,7 @@ CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
                     router: this.routerName(receipt.to),
                     logIndex: v3Logs[i].logIndex,
                     v3Orv2: "v3",
-                    isEpiWallet: wallets.includes(receipt.from),
+                    isEpiWallet: wallets.includes(receipt.from) || wallets.includes(receipt.from.toLowerCase()),
                     etherPrice: this.etherPrice
                 }
                 //console.log(v3SwapsToAdd, amountPoolTokenWithDecimals, amountDesiredTokenWithDecimals)
