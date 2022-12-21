@@ -35,7 +35,7 @@ const StablesOrEth = [USDC,USDT,DAI,WETH,BUSD, FRAX, WBTC]
 //routers
 const UniswapV3Router2 = '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
 const OneInchv5Router = '0x1111111254EEB25477B68fb85Ed929f73A960582'
-const KyberSwap = '0x617dee16b86534a5d792a4d7a62fb491b544111e'
+const KyberSwap = '0x617Dee16B86534a5d792A4d7A62FB491B544111E'
 const UniswapV2 = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
 const SushiSwapRouter = "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"
 const KyberSwapInBetweenContract = "0x4Fe5b965E3BD76eFf36280471030ef9b0E6e2C1D"
@@ -235,7 +235,7 @@ WALLET: https://etherscan.io/address/${swap.wallet}
         const _WETH = new ethers.Contract(WETH, WETHABI, this.httpProvider);
         const _USDC = new ethers.Contract(USDC, USDCABI, this.httpProvider);
         const _USDT = new ethers.Contract(USDT, USDTABI, this.httpProvider);
-        const _Kyberswap = new ethers.Contract(KyberSwap, KyberswapABI, this.httpProvider);
+        //const _Kyberswap = new ethers.Contract(KyberSwap, KyberswapABI, this.httpProvider);
         //let i = 0;
 
         _WETH.on("Deposit", async (address, amount, event) => {
