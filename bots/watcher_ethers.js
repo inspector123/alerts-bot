@@ -189,6 +189,7 @@ export class Watcher {
 ${swap.isBuy ? `Bought ` : `Sold`} $${swap.usdVolume} worth of ${swap.symbol}
 TXHASH: https://etherscan.io/tx/${swap.txHash}
 CONTRACT ADDRESS: https://etherscan.io/address/${swap.contract}
+WALLET: https://etherscan.io/address/${swap.wallet}
                 `)
             })
         }
