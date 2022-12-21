@@ -124,7 +124,6 @@ export class Watcher {
             //console.log(swaps)
             for (let i in swaps) {
                 const response = await api.post(`/api/blocks`, swaps[i])
-                console.log(response.data.status, 'asdfkjl')
             }
            
             //console.log(response.data.status)
