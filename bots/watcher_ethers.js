@@ -43,7 +43,12 @@ const RainbowRouter = "0x00000000009726632680FB29d3F7A9734E3010E2"
 //check for sushiswap / rainbow swap functions
 const OneInchV4Router = "0x1111111254fb6c44bAC0beD2854e76F90643097d"
 const ShibaSwap = "0x03f7724180aa6b939894b5ca4314783b0b36b329"
-const acceptedRouters = [UniswapV2, UniswapV3Router2,OneInchV4Router,OneInchv5Router,KyberSwap, SushiSwapRouter,RainbowRouter]
+const coinbasewalletProxy0x = "0xe66b31678d6c16e9ebf358268a790b763c133750"
+const acceptedRouters = [UniswapV2, UniswapV3Router2,OneInchV4Router,OneInchv5Router,KyberSwap, SushiSwapRouter,RainbowRouter, coinbasewalletProxy0x]
+
+const bigcapbot1="0xb7fd3575c614d8f2ffd50ce48c199b0aafa2c0bc"
+const bigcapbot2="0x63af5004090c15a2df73e9b2a4064801ce70da30"
+const botContracts= ["0xa612d7680a249581beDEE885ddCed743E8BCaa9e", "0x27dE7D1dEbaBBE7f63383F9A81793b3f19438321",bigcapbot1, bigcapbot2]
 
 //Pools
 
@@ -286,7 +291,7 @@ WALLET: https://etherscan.io/address/${swap.wallet}
             const receipt = await event.getTransactionReceipt();
             //return if kyberswap ; kyberswap will take care of it
             const addresses = receipt.logs.map(l=>l.address);
-            if (!acceptedRouters.includes(receipt.to)) return {};
+            if (!acceptedRouters.includes(receipt.to) || !botContracts.includes(receipt.to)) return {};
             const swapLogs = receipt.logs.filter(log=>log.data.length >= 258 && !disallowedPools.includes(log.address))
             if (swapLogs.length) {
                 const v2Logs = swapLogs.filter(log=>log.data.length == 258 && log.topics.length == 3);
