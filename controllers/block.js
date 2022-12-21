@@ -17,7 +17,6 @@ export const getAllBlocks = (req, res, next) => {
     let { body } = req;
     
     const _body = Object.values(body)
-    console.log(_body)
     const result = conn.query(
       "INSERT INTO BlockEvents (blockNumber,symbol,contract,usdVolume,usdPrice,isBuy,txHash,wallet,router,logIndex,v3Orv2,isEpiWallet,etherPrice) VALUES(?);",[_body], (err,data)=>{
         if (err) res.status(500).json({status: "error", err})
