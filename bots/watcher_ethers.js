@@ -124,6 +124,7 @@ export class Watcher {
             //Blocks
             let swaps = previousBlockSwaps.flat().filter(b=>b.blockNumber)
             //console.log(swaps)
+            //console.log(swaps)
             for (let i in swaps) {
                 const response = await api.post(`/api/blocks`, swaps[i])
             }
@@ -234,7 +235,6 @@ WALLET: https://etherscan.io/address/${swap.wallet}
         _WETH.on("Deposit", async (address, amount, event) => {
             //console.log(event)
             if (this.blockTxHashes.includes(event.transactionHash)) {
-                console.log('skipping', event.transactionHash)
                 return;
             }
             this.blockTxHashes = [...this.blockTxHashes, event.transactionHash]
@@ -295,7 +295,7 @@ WALLET: https://etherscan.io/address/${swap.wallet}
                     //set up v2 pair
                     //console.log(v2Logs)
                     const v2Swaps = await this.handlev2Logs(v2Logs, receipt);
-                    allSwaps = [...allSwaps, v2Swaps]
+                    allSwaps = [...allSwaps, v2Swaps].flat()
                     //this.currentBlockSwaps = [...allSwaps, v2Swaps]
 
                     
@@ -305,7 +305,7 @@ WALLET: https://etherscan.io/address/${swap.wallet}
                 if (v3Logs.length) {
                     const v3Swaps = await this.handlev3Logs(v3Logs, receipt);
                     //console.log(transactions)
-                    allSwaps = [...allSwaps, v3Swaps]
+                    allSwaps = [...allSwaps, v3Swaps].flat()
                     
                     
                 }
@@ -443,8 +443,8 @@ WALLET: https://etherscan.io/address/${swap.wallet}
 
         })
         //console.log(sortedSwaps)
-        if (sortedSwaps.length) return sortedSwaps[0]
-        else return {}
+        if (sortedSwaps.length) return sortedSwaps
+        else return []
     }
     async handlev3Logs(v3Logs, receipt) {
         //console.log(v3Logs)
@@ -542,8 +542,8 @@ WALLET: https://etherscan.io/address/${swap.wallet}
             return a.usdVolume > b.usdVolume;
         })
         //console.log(sortedSwaps);
-        if (sortedSwaps.length) return sortedSwaps[0]
-        else return {}
+        if (sortedSwaps.length) return sortedSwaps
+        else return []
     }
     handleKyberSwapEvent(event) {
         this.blockTxHashes = [...this.blockTxHashes, event.transactionHash];
