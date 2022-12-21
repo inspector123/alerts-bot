@@ -15,14 +15,11 @@ export const getAllBlocks = (req, res, next) => {
    export const createBlock = async (req, res, next) => {
     if (!req.body) return next(new AppError("No form data found", 404));
     let { body } = req;
-    if (!body.length) return;
-    const _body = body.map(b=>{
-      return Object.values(b)
-    })
-    //console.log(_body)
-    //console.log([b])
+    
+    const _body = Object.values(body)
+    console.log(_body)
     const result = conn.query(
-      "INSERT INTO BlockEvents (blockNumber,symbol,contract,usdVolume,usdPrice,isBuy,txHash,wallet,router,logIndex,v3Orv2,isEpiWallet,etherPrice) VALUES(?);".repeat(_body.length),_body, (err,data)=>{
+      "INSERT INTO BlockEvents (blockNumber,symbol,contract,usdVolume,usdPrice,isBuy,txHash,wallet,router,logIndex,v3Orv2,isEpiWallet,etherPrice) VALUES(?);",[_body], (err,data)=>{
         if (err) res.status(500).json({status: "error", err})
         else {
           res.status(200).json({

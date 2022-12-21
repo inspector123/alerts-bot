@@ -122,8 +122,12 @@ export class Watcher {
             //Blocks
             let swaps = previousBlockSwaps.flat().filter(b=>b.blockNumber)
             //console.log(swaps)
-            const response = await api.post(`/api/blocks`, swaps)
-            console.log(response.data.status)
+            for (let i in swaps) {
+                const response = await api.post(`/api/blocks`, swaps[i])
+                console.log(response.data.status, 'asdfkjl')
+            }
+           
+            //console.log(response.data.status)
             //console.log(currentBlockSwaps.flat())
 
             // let contractsToPost;
@@ -168,7 +172,7 @@ export class Watcher {
             //console.log(b)
             //const response = await api.post(`/api/contracts`, contracts).then(r=>console.log(r)).catch(e=>console.log(e))
         } catch (e) {
-            console.log(e.response.data.err.sql, previousBlockSwaps.flat().filter(b=>b.blockNumber))
+            console.log(e.response, previousBlockSwaps.flat().filter(b=>b.blockNumber))
             this.previousBlockSwaps = []
 
         }
