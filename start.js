@@ -36,5 +36,5 @@ const wssPort = "9536"
 const httpUrl = `http://${localNodeIp}:${httpPort}`
 const wsUrl = `ws://${localNodeIp}:${wssPort}`
 
-const watcher = new Watcher(CHAT_ID_CHANNEL_BETA, wallets, AlertBotKey, VolumeBotKey, testnetStatus, httpUrl, wsUrl);
+const watcher = new Watcher(CHAT_ID_CHANNEL, wallets, AlertBotKey, VolumeBotKey, testnetStatus, httpUrl, wsUrl);
 //watcher.runVolumeCheck(1)
