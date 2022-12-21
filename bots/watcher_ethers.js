@@ -228,7 +228,7 @@ WALLET: https://etherscan.io/address/${swap.wallet}
         _WETH.on("Deposit", async (address, amount, event) => {
             //console.log(event)
             if (this.blockTxHashes.includes(event.transactionHash)) {
-                console.log('skipping')
+                console.log('skipping', event.transactionHash)
                 return;
             }
             this.blockTxHashes = [...this.blockTxHashes, event.transactionHash]
