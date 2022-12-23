@@ -632,9 +632,14 @@ WALLET: https://etherscan.io/address/${swap.wallet}
         await axios.get(url).then((r) => {
             if (r.data.status !== 0) {
                 if (r.data.message != "NOTOK") {
-                    console.log('Current Price of Ether: $', r.data.result.ethusd)
                     this.etherPrice = parseInt(r.data.result.ethusd)
-                    this.btcPrice = parseInt(r.data.result.ethusd) / parseInt(r.data.result.ethbtc)
+                    const {ethusd, ethbtc} = r.data.result;
+                    console.log(r.data.result)
+                    console.log(ethusd/ethbtc);
+                    this.btcPrice = ethusd/ethbtc
+
+                    console.log('Current Price of Ether: $', this.etherPrice)
+                    console.log('Current Price of BTC:', this.btcPrice)
                     return;
                 } else {
                     console.log('Error getting price')
