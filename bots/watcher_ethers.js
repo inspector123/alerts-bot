@@ -183,7 +183,7 @@ export class Watcher {
             
             //const response = await api.post(`/api/contracts`, contracts).then(r=>console.log(r)).catch(e=>console.log(e))
         } catch (e) {
-            console.log(e.response.data)
+            console.log(e)
             this.previousBlockSwaps = []
 
         }
@@ -441,7 +441,14 @@ WALLET: https://etherscan.io/address/${swap.wallet}
                 }
 
                 //v3
-
+                //v3
+                let marketCap;
+                 try {
+                    marketCap = usdPrice*totalSupply/10**desiredDecimals;
+                 }catch(e) {
+                    console.log(e)
+                    marketCap = 0;
+                 }
 
                     const v2SwapsToAdd = {
                         blockNumber: receipt.blockNumber,
@@ -457,7 +464,7 @@ WALLET: https://etherscan.io/address/${swap.wallet}
                         v3Orv2: "v2",
                         isEpiWallet: wallets.includes(receipt.from) || wallets.includes(receipt.from.toLowerCase()),
                         etherPrice: this.etherPrice,
-                        marketCap: usdPrice*totalSupply/10**desiredDecimals
+                        marketCap: marketCap == null ? 0 : marketCap
                     }
                     v2Swaps = [...v2Swaps, v2SwapsToAdd]
                 }
@@ -586,7 +593,7 @@ WALLET: https://etherscan.io/address/${swap.wallet}
                     v3Orv2: "v3",
                     isEpiWallet: wallets.includes(receipt.from) || wallets.includes(receipt.from.toLowerCase()),
                     etherPrice: this.etherPrice,
-                    marketCap,
+                    marketCap: marketCap == null ? 0 : marketCap,
                 }
                 
                 v3Swaps = [...v3Swaps, v3SwapsToAdd]
@@ -634,8 +641,8 @@ WALLET: https://etherscan.io/address/${swap.wallet}
                 if (r.data.message != "NOTOK") {
                     this.etherPrice = parseInt(r.data.result.ethusd)
                     const {ethusd, ethbtc} = r.data.result;
-                    console.log(r.data.result)
-                    console.log(ethusd/ethbtc);
+                    //console.log(r.data.result)
+                    //console.log(ethusd/ethbtc);
                     this.btcPrice = ethusd/ethbtc
 
                     console.log('Current Price of Ether: $', this.etherPrice)
