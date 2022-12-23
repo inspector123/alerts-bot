@@ -60,7 +60,7 @@ volume1d varchar(50) NOT NULL,
 PRIMARY KEY (id)
 
 );
-CREATE TABLE BlockEvents(id int NOT NULL AUTO_INCREMENT,
+CREATE TABLE BlockEvents2(id int NOT NULL AUTO_INCREMENT,
 blockNumber VARCHAR(100),
 symbol VARCHAR(100),
 contract VARCHAR(100),

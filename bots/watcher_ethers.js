@@ -97,6 +97,7 @@ export class Watcher {
     interrupt = false;
     UniV2Factory;
     etherPrice;
+    btcPrice;
     currentBlockSwaps = [];
     started;
 
@@ -123,7 +124,7 @@ export class Watcher {
     }
     
     async sendToApi(previousBlockSwaps) {
-                //console.log(this.currentBlockSwaps);
+                
         //const response = await api.post(`/api/blocks`, this.currentBlockSwaps).then(r=>console.log(r.status)).catch(e=>console.error(e));
 
 
@@ -131,14 +132,14 @@ export class Watcher {
         try {
             //Blocks
             let swaps = previousBlockSwaps.flat().filter(b=>b.blockNumber)
-            //console.log(swaps)
-            //console.log(swaps)
+            
+            
             for (let i in swaps) {
                 const response = await api.post(`/api/blocks`, swaps[i])
             }
            
-            //console.log(response.data.status)
-            //console.log(currentBlockSwaps.flat())
+            
+            
 
             // let contractsToPost;
             // //Contracts
@@ -179,10 +180,10 @@ export class Watcher {
             
             
 
-            //console.log(b)
+            
             //const response = await api.post(`/api/contracts`, contracts).then(r=>console.log(r)).catch(e=>console.log(e))
         } catch (e) {
-            console.log(e.response, previousBlockSwaps.flat().filter(b=>b.blockNumber))
+            console.log(e.response.data)
             this.previousBlockSwaps = []
 
         }
@@ -224,10 +225,10 @@ WALLET: https://etherscan.io/address/${swap.wallet}
             if (this.currentBlockSwaps.length) {
                 this.previousBlockSwaps = this.currentBlockSwaps;
                 this.currentBlockSwaps = [];
-               // console.log(this.previousBlockSwaps)
+                // console.log(this.previousBlockSwaps)
                 await this.sendToApi(this.previousBlockSwaps);
                 await this.sendToTelegram(this.previousBlockSwaps);
-                this.previousBlockSwaps = [];
+               // this.previousBlockSwaps = [];
 
             }
 
@@ -241,7 +242,7 @@ WALLET: https://etherscan.io/address/${swap.wallet}
         //let i = 0;
 
         _WETH.on("Deposit", async (address, amount, event) => {
-            //console.log(event)
+            
             if (this.blockTxHashes.includes(event.transactionHash)) {
                 return;
             }
@@ -291,17 +292,21 @@ WALLET: https://etherscan.io/address/${swap.wallet}
     async grabSwap(event){
         try {
             const receipt = await event.getTransactionReceipt();
+            
             //return if kyberswap ; kyberswap will take care of it
             const addresses = receipt.logs.map(l=>l.address);
-            if (!acceptedRouters.includes(receipt.to) || !botContracts.includes(receipt.to)) return {};
+            
+            if (!acceptedRouters.includes(receipt.to)) return {};
+            
             const swapLogs = receipt.logs.filter(log=>log.data.length >= 258 && !disallowedPools.includes(log.address))
             if (swapLogs.length) {
                 const v2Logs = swapLogs.filter(log=>log.data.length == 258 && log.topics.length == 3);
                 const v3Logs = swapLogs.filter(log=>log.data.length == 322 && log.topics.length == 3);
                 let allSwaps = []
+               // console.log(swapLogs, 'swaplogs')
                 if (v2Logs.length) {
                     //set up v2 pair
-                    //console.log(v2Logs)
+                    
                     const v2Swaps = await this.handlev2Logs(v2Logs, receipt);
                     allSwaps = [...allSwaps, v2Swaps].flat()
                     //this.currentBlockSwaps = [...allSwaps, v2Swaps]
@@ -312,7 +317,7 @@ WALLET: https://etherscan.io/address/${swap.wallet}
                 }
                 if (v3Logs.length) {
                     const v3Swaps = await this.handlev3Logs(v3Logs, receipt);
-                    //console.log(transactions)
+                    
                     allSwaps = [...allSwaps, v3Swaps].flat()
                     
                     
@@ -323,13 +328,14 @@ WALLET: https://etherscan.io/address/${swap.wallet}
                     //     return a.usdVolume > b.usdVolume
                     // })
                     // allSwaps = allSwaps[0]
-                   //console.log(allSwaps)
+                   
                 }
                 this.currentBlockSwaps = [...this.currentBlockSwaps, allSwaps]
                 //return allSwaps
             }
         } catch(e) {
-            console.log(e, event.transactionHash, receipt.to)
+            const receipt = await event.getTransactionReceipt();
+            console.log(e, event.transactionHash, receipt.logs)
         }
     }
         
@@ -349,11 +355,12 @@ WALLET: https://etherscan.io/address/${swap.wallet}
                 if (StablesOrEth.includes(token0) && StablesOrEth.includes(token1)) return {};
                 const poolToken = StablesOrEth.includes(token0) ? token0 : token1;
                 const desiredToken = poolToken == token0 ? token1 : token0;
+                //console.log(poolToken, desiredToken)
                 
                 //set up contracts
                 const _desiredToken = new ethers.Contract(desiredToken, basicTokenABI, this.httpProvider);
                 const _poolToken = new ethers.Contract(poolToken, basicTokenABI, this.httpProvider);
-                
+                //console.log(poolToken,desiredToken)
 
                 
                 //v2
@@ -377,8 +384,8 @@ WALLET: https://etherscan.io/address/${swap.wallet}
                     details.poolTokenIn = parsedLog.args.amount1In,
                     details.poolTokenOut = parsedLog.args.amount1Out
                 }
-                //console.log(details)
-                let transactionType,usdVolume,usdPrice, amountPoolTokenWithDecimals, amountDesiredTokenWithDecimals;
+
+                let transactionType,usdVolume = 0,usdPrice = 0, amountPoolTokenWithDecimals, amountDesiredTokenWithDecimals;
 
                 //v3&v2
                 const symbol = await _desiredToken.symbol();
@@ -389,6 +396,7 @@ WALLET: https://etherscan.io/address/${swap.wallet}
                 const poolSymbol = await _poolToken.symbol();
                 const isStableCoin = [USDC,USDT,BUSD,DAI].includes(poolToken);
                 const isWeth = poolToken == WETH;
+                const isWBTC = poolToken == WBTC;
                 //v2
                 //possible scenarios
                 /*
@@ -409,6 +417,10 @@ WALLET: https://etherscan.io/address/${swap.wallet}
                         usdVolume = amountPoolTokenWithDecimals * this.etherPrice;
                         usdPrice = amountPoolTokenWithDecimals / amountDesiredTokenWithDecimals * this.etherPrice;
                     }
+                    if (isWBTC) {
+                        usdVolume = amountPoolTokenWithDecimals * this.btcPrice;
+                        usdPrice = amountPoolTokenWithDecimals / amountDesiredTokenWithDecimals * this.btcPrice;
+                    }
 
                 } else {
                     transactionType = 1;
@@ -421,6 +433,10 @@ WALLET: https://etherscan.io/address/${swap.wallet}
                     if (isWeth) {
                         usdVolume = amountPoolTokenWithDecimals * this.etherPrice;
                         usdPrice = amountPoolTokenWithDecimals / amountDesiredTokenWithDecimals * this.etherPrice;
+                    }
+                    if (isWBTC) {
+                        usdVolume = amountPoolTokenWithDecimals * this.btcPrice;
+                        usdPrice = amountPoolTokenWithDecimals / amountDesiredTokenWithDecimals * this.btcPrice;
                     }
                 }
 
@@ -450,34 +466,51 @@ WALLET: https://etherscan.io/address/${swap.wallet}
             return a.usdVolume > b.usdVolume
 
         })
-        //console.log(sortedSwaps)
         if (sortedSwaps.length) return sortedSwaps
         else return []
     }
     async handlev3Logs(v3Logs, receipt) {
-        //console.log(v3Logs)
+        try {
+        
         let v3Swaps = []
         for (let i in v3Logs) {
             const _interface = new utils.Interface(univ3PoolABI);
             const _v3Pair = new ethers.Contract(v3Logs[i].address, univ2PairABI, this.httpProvider);
-            //get swap log for v2
-            const parsedLog = _interface.parseLog(v3Logs[i]);
+            //get swap log for v3
+            let parsedLog;
+            try {
+                parsedLog = _interface.parseLog(v3Logs[i]);
+            } catch(e) {
+                console.log(e, parsedLog)
+            }
+             
             // console.log(parsedLog)
             if (parsedLog && parsedLog.signature == 'Swap(address,address,int256,int256,uint160,uint128,int24)') {
                 //get tokens from pool interface
+                console.log('asdf')
                 const token0 = await _v3Pair.token0();
                 const token1 = await _v3Pair.token1();
+                if (StablesOrEth.includes(token0) && StablesOrEth.includes(token1)) return {};
                 const poolToken = StablesOrEth.includes(token0) ? token0 : token1;
                 const desiredToken = poolToken == token0 ? token1 : token0;
                 let transactionType, usdVolume, usdPrice,amountPoolTokenWithDecimals, amountDesiredTokenWithDecimals;
                 //set up contracts
                 const _desiredToken = new ethers.Contract(desiredToken, basicTokenABI, this.httpProvider);
                 const _poolToken = new ethers.Contract(poolToken, basicTokenABI, this.httpProvider);
-                const poolDecimals = await _poolToken.decimals();
-                const desiredDecimals = await _desiredToken.decimals();
-                const desiredSymbol = await _desiredToken.symbol();
-                const totalSupply = await _desiredToken.totalSupply();
-                const poolSymbol = await _poolToken.symbol();
+                //console.log(parsedLog)
+                let poolDecimals, desiredDecimals, desiredSymbol, totalSupply, poolSymbol;
+                try {
+                    poolDecimals = await _poolToken.decimals();
+                    desiredDecimals = await _desiredToken.decimals();
+                    desiredSymbol = await _desiredToken.symbol();
+                    totalSupply = await _desiredToken.totalSupply();
+                    poolSymbol = await _poolToken.symbol();
+                } catch(e) {
+                    console.log(e, parsedLog, poolToken, desiredToken)
+                    return;
+                }
+                
+                //console.log(desiredToken, poolToken, 'success')
 
                 let details = {
                     desiredTokenAmount: 0,
@@ -494,9 +527,10 @@ WALLET: https://etherscan.io/address/${swap.wallet}
                 }
                 amountDesiredTokenWithDecimals = details.desiredTokenAmount / 10**desiredDecimals;
                 amountPoolTokenWithDecimals = details.poolTokenAmount / 10 ** poolDecimals;
-                const isStableCoin = [USDC,USDT,DAI].includes(poolToken);
+                const isStableCoin = [USDC,USDT,DAI,].includes(poolToken);
                 const isWeth = poolToken == WETH;
-                //console.log(details.desiredTokenAmount < 0, details.poolTokenAmount < 0)
+                const isWBTC = poolToken == WBTC;
+                
                 if (details.desiredTokenAmount < 0) {
                 
                     transactionType = 1;
@@ -507,6 +541,10 @@ WALLET: https://etherscan.io/address/${swap.wallet}
                     if (isWeth) {
                         usdVolume = amountPoolTokenWithDecimals  * this.etherPrice ;
                         usdPrice = (amountPoolTokenWithDecimals * this.etherPrice )/ -1*amountDesiredTokenWithDecimals;
+                    }
+                    if (isWBTC) {
+                        usdVolume = amountPoolTokenWithDecimals  * this.btcPrice ;
+                        usdPrice = (amountPoolTokenWithDecimals * this.btcPrice )/ -1*amountDesiredTokenWithDecimals;
                     }
                 } 
                 if (details.poolTokenAmount < 0) {
@@ -520,10 +558,19 @@ WALLET: https://etherscan.io/address/${swap.wallet}
                         usdVolume = -1*(amountPoolTokenWithDecimals ) * this.etherPrice;
                         usdPrice = -1*amountPoolTokenWithDecimals / amountDesiredTokenWithDecimals * this.etherPrice;
                     }
+                    if (isWBTC) {
+                        usdVolume = -1*(amountPoolTokenWithDecimals ) * this.btcPrice;
+                        usdPrice = -1*amountPoolTokenWithDecimals / amountDesiredTokenWithDecimals * this.btcPrice;
+                    }
                 }
                 //v3
-
-
+                let marketCap;
+                 try {
+                    marketCap = usdPrice*totalSupply/10**desiredDecimals;
+                 }catch(e) {
+                    console.log(e)
+                    marketCap = 0;
+                 }
                 const v3SwapsToAdd =
                 {
                     blockNumber: receipt.blockNumber,
@@ -539,9 +586,9 @@ WALLET: https://etherscan.io/address/${swap.wallet}
                     v3Orv2: "v3",
                     isEpiWallet: wallets.includes(receipt.from) || wallets.includes(receipt.from.toLowerCase()),
                     etherPrice: this.etherPrice,
-                    marketCap: usdPrice*totalSupply/10**desiredDecimals,
+                    marketCap,
                 }
-                //console.log(v3SwapsToAdd, amountPoolTokenWithDecimals, amountDesiredTokenWithDecimals)
+                
                 v3Swaps = [...v3Swaps, v3SwapsToAdd]
 
             }
@@ -549,14 +596,17 @@ WALLET: https://etherscan.io/address/${swap.wallet}
         let sortedSwaps = v3Swaps.filter(s=>!disallowedSymbols.includes(s.symbol)).sort((a,b)=>{
             return a.usdVolume > b.usdVolume;
         })
-        //console.log(sortedSwaps);
         if (sortedSwaps.length) return sortedSwaps
         else return []
+        }
+        catch(e) {
+            console.log('v3Logs error', e, v3Logs)
+        }
     }
-    handleKyberSwapEvent(event) {
-        this.blockTxHashes = [...this.blockTxHashes, event.transactionHash];
-        return;
-    }
+    // handleKyberSwapEvent(event) {
+    //     this.blockTxHashes = [...this.blockTxHashes, event.transactionHash];
+    //     return;
+    // }
 
     routerName(address) {
         switch (address) {
@@ -584,6 +634,7 @@ WALLET: https://etherscan.io/address/${swap.wallet}
                 if (r.data.message != "NOTOK") {
                     console.log('Current Price of Ether: $', r.data.result.ethusd)
                     this.etherPrice = parseInt(r.data.result.ethusd)
+                    this.btcPrice = parseInt(r.data.result.ethusd) / parseInt(r.data.result.ethbtc)
                     return;
                 } else {
                     console.log('Error getting price')
@@ -592,7 +643,8 @@ WALLET: https://etherscan.io/address/${swap.wallet}
             } 
         }).catch(e=>{
             console.log(e)
-            this.etherPrice = 1300;
+            this.etherPrice = 1200;
+            this.btcPrice = 16000;
         });
         return;
     }
