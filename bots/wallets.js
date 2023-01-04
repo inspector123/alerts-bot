@@ -1,6 +1,3 @@
-import { Telegraf } from 'telegraf';
-import { run } from './watch.js';
-const bot = new Telegraf('5802732074:AAFOFJTQf97hZyXZvrkLbLcsKGStBQOlw4Y');
 const wallets = [
     "0xfed3d7216792066A442bbE2b3E1166F15Bdd334a",
     "0x01436EfC8f74d2Fb9EC1e7Bb9e7A073ae4C1De81",
@@ -202,50 +199,4 @@ const wallets = [
     "0xfc98B38327204827e2eAaDbC17b6682bAD0ebeC1",
     "0xfE83e3d5096aD14c0AFB93047fa840bfC948f358"
     ]
-const CHAT_ID = -1001855095247;
-bot.command('start', ctx => {
-    bot.telegram.sendMessage(CHAT_ID, `Welcome. Hit /run to begin.`, {
-    })
-    
-    
-
-})
-
-bot.command('wallet_single', ctx => { 
-    bot.telegram.
-    bot.telegram.sendMessage(ctx.chat.id, 'Added single wallet', {
-    })
-    
-    //run(bot, ctx, wallets)
-})
-
-bot.command('add_wallets', ctx=>{
-    console.log(ctx.message)
-    //addWallets(ctx);
-    //run(bot, ctx, wallets)
-})
-
-bot.command('run',ctx=>{
-
-    bot.telegram.sendMessage(ctx.chat.id,`Running...`)
-    run(bot, ctx, wallets, ctx.chat.id)
-})
-
-bot.launch();
-
-const addWallets = (ctx) => {
-    
-    try {
-        const newText = ctx.message.text.slice(13);
-
-        const arr = newText.split(',').map(t=>t.replace(' ', ''))
-        console.log(arr)
-        wallets = [...wallets, ...arr]
-        console.log(wallets)
-        bot.telegram.sendMessage(ctx.chat.id, `New Wallets: ${wallets.reduce((i,j)=>`${i}, ${j}`)}`)
-    } catch (e) {
-        console.log(e)
-        bot.telegram.sendMessage(ctx.chat.id, 'You fucked up adding the wallets, try again')
-    }
-}
-
+export default wallets;

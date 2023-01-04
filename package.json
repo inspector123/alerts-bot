@@ -4,11 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start wallet": "node index.js",
-    "start volume": "node volume.js",
+    "start": "node start.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "type":"module",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/inspector123/alerts-bot.git"
@@ -22,6 +21,11 @@
   "dependencies": {
     "axios": "^1.2.0",
     "bignumber.js": "^9.1.0",
+    "body-parser": "^1.20.1",
+    "cors": "^2.8.5",
+    "ethers": "^5.7.2",
+    "express": "^4.18.2",
+    "mysql2": "^2.3.3",
     "telegraf": "^4.11.2",
     "web3": "^1.8.1"
   }
