@@ -101,7 +101,7 @@ export class Watcher {
     currentBlockSwaps = [];
     started;
 
-    constructor(chatId, wallets, alertBotKey, volumeBotKey, testnet, httpUrl, wsUrl) {
+    constructor(chatId, wallets, alertBotKey, volumeBotKey, testnet, httpUrl, archiveUrl) {
         this.chatId = chatId;
         this.wallets = wallets;
         this.alertBot = new Telegraf(alertBotKey);
@@ -113,7 +113,7 @@ export class Watcher {
 
 
             this.httpProvider = new ethers.providers.JsonRpcProvider(httpUrl);
-            this.wsProvider = new ethers.providers.WebSocketProvider(wsUrl)
+            this.archiveProvider = new ethers.providers.JsonRpcProvider(wsUrl)
         }
         this.blocks = 0;
         this.runEthersBlockCheck();
@@ -227,7 +227,7 @@ WALLET: https://etherscan.io/address/${swap.wallet}
                 this.currentBlockSwaps = [];
                 // console.log(this.previousBlockSwaps)
                 await this.sendToApi(this.previousBlockSwaps);
-                await this.sendToTelegram(this.previousBlockSwaps);
+                //await this.sendToTelegram(this.previousBlockSwaps);
                // this.previousBlockSwaps = [];
 
             }
@@ -238,6 +238,7 @@ WALLET: https://etherscan.io/address/${swap.wallet}
         const _WETH = new ethers.Contract(WETH, WETHABI, this.httpProvider);
         const _USDC = new ethers.Contract(USDC, USDCABI, this.httpProvider);
         const _USDT = new ethers.Contract(USDT, USDTABI, this.httpProvider);
+        
         //const _Kyberswap = new ethers.Contract(KyberSwap, KyberswapABI, this.httpProvider);
         //let i = 0;
 
@@ -255,6 +256,7 @@ WALLET: https://etherscan.io/address/${swap.wallet}
             
 
         })
+
         _WETH.on("Withdrawal", async (address, amount, event) => {
             if (this.blockTxHashes.includes(event.transactionHash)) {
                 return;
