@@ -105,7 +105,7 @@ export class Watcher {
         this.chatId = chatId;
         this.wallets = wallets;
         this.alertBot = new Telegraf(alertBotKey);
-        this.volumeBot = new Telegraf(volumeBotKey);
+        //this.volumeBot = new Telegraf(volumeBotKey);
         this.startBots();
         if (testnet) {
             console.log('testnet')
@@ -496,7 +496,7 @@ WALLET: https://etherscan.io/address/${swap.wallet}
             // console.log(parsedLog)
             if (parsedLog && parsedLog.signature == 'Swap(address,address,int256,int256,uint160,uint128,int24)') {
                 //get tokens from pool interface
-                console.log('asdf')
+                //console.log('asdf')
                 const token0 = await _v3Pair.token0();
                 const token1 = await _v3Pair.token1();
                 if (StablesOrEth.includes(token0) && StablesOrEth.includes(token1)) return {};
@@ -697,7 +697,7 @@ WALLET: https://etherscan.io/address/${swap.wallet}
        
 
         this.alertBot.launch();
-        this.volumeBot.launch();
+        //this.volumeBot.launch();
     }
 
     
