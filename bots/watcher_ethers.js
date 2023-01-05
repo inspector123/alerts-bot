@@ -113,7 +113,7 @@ export class Watcher {
 
 
             this.httpProvider = new ethers.providers.JsonRpcProvider(httpUrl);
-            this.archiveProvider = new ethers.providers.JsonRpcProvider(wsUrl)
+            this.archiveProvider = new ethers.providers.JsonRpcProvider(archiveUrl)
         }
         this.blocks = 0;
         this.runEthersBlockCheck();
