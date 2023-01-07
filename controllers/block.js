@@ -57,22 +57,43 @@ export const getAllBlocks = (req, res, next) => {
  */
 
    export const getBlock = (req, res, next) => {
-    if (!req.params.id) {
-      return next(new AppError("No block found", 404));
-    }
-    conn.query(
-      "SELECT * FROM BlockEvents WHERE blockNumber = ?",
-      [req.params.id],
-      function (err, data, fields) {
-        if (err) return next(new AppError(err, 500));
-        res.status(200).json({
-          status: "success",
-          length: data?.length,
-          data: data,
+
+    console.log(req.params, req.query)
+    // if (!req.params.blockNumber) {
+    //   console.log('noreqparamsid')
+    //   //return next(new AppError("No block found", 404));
+    // }
+    console.log(req.params, req.query)
+    if (!req.query.min) {
+      conn.query(
+        "SELECT * FROM BlockEvents WHERE blockNumber = ?",
+        [req.params.id],
+        function (err, data, fields) {
+          //if (err) return next(new AppError(err, 500));
+          res.status(200).json({
+            status: "success",
+            length: data?.length,
+            data: data,
+          });
+        }
+      );
+    } else {
+      conn.query(
+        "SELECT min(blockNumber) as minBlockNumber from BlockEvents",
+        function (err, data, fields) {
+          if(err) return next(new AppError(err))
+          res.status(200).json({
+            status: "success",
+            length: data?.length,
+            data: data,
+          });
         });
-      }
-    );
+    }
    };
+
+   export const getMinBlockNumber = (req, res, next) => {
+    
+   }
 
    
 

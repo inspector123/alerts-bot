@@ -1,4 +1,5 @@
 import { BlockPoster } from './bots/blockPoster.js'
+import { BlockFiller } from './bots/blockFiller.js'
 import wallets from "./utils/wallets.js"
 import express from "express"
 import cors from "cors"
@@ -40,5 +41,8 @@ const fullNodeUrl = `http://${fullNodeIp}:${httpPort}`
 const archiveUrl = `http://${archiveNodeIp}:${httpPort}`
 //watcher.runVolumeCheck(1)
 
-const blockPoster = new BlockPoster(chatId, wallets, AlertBotKey, fullNodeUrl, archiveUrl)
+const blockPoster = new BlockPoster(chatId, wallets, AlertBotKey, fullNodeUrl, archiveUrl);
 blockPoster.start();
+
+const blockFiller = new BlockFiller(chatId, archiveUrl);
+await blockFiller.fillBlocksFromBehind(1000);
