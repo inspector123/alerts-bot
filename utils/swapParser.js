@@ -35,7 +35,7 @@ class SwapParser {
             
             const addresses = receipt.logs.map(l=>l.address);
             
-            if (!acceptedRouters.includes(receipt.to)) return {};
+            if (!acceptedRouters.includes(receipt.to)) return [];
             
             const swapLogs = receipt.logs.filter(log=>log.data.length >= 258 && !disallowedPools.includes(log.address))
             if (swapLogs.length) {
@@ -45,7 +45,6 @@ class SwapParser {
             // console.log(swapLogs, 'swaplogs')
                 if (v2Logs.length) {
                     //set up v2 pair
-                    
                     const v2Swaps = await this.handlev2Logs(v2Logs, receipt, etherPrice, btcPrice);
                     allSwaps = [...allSwaps, v2Swaps].flat()
                     //this.currentBlockSwaps = [...allSwaps, v2Swaps]
@@ -66,7 +65,7 @@ class SwapParser {
                 
                 }
                 this.currentBlockSwaps = [...this.currentBlockSwaps, allSwaps]
-                //return allSwaps
+                return allSwaps
             }
         } catch(e) {
             const receipt = await event.getTransactionReceipt();
@@ -87,7 +86,7 @@ class SwapParser {
                 //get tokens from pool interface
                 const token0 = await _v2Pair.token0();
                 const token1 = await _v2Pair.token1();
-                if (Constants.StablesOrEth.includes(token0) && Constants.StablesOrEth.includes(token1)) return {};
+                if (Constants.StablesOrEth.includes(token0) && Constants.StablesOrEth.includes(token1)) continue;
                 const poolToken = Constants.StablesOrEth.includes(token0) ? token0 : token1;
                 const desiredToken = poolToken == token0 ? token1 : token0;
                 //console.log(poolToken, desiredToken)
@@ -232,7 +231,7 @@ class SwapParser {
                 //console.log('asdf')
                 const token0 = await _v3Pair.token0();
                 const token1 = await _v3Pair.token1();
-                if (Constants.StablesOrEth.includes(token0) && Constants.StablesOrEth.includes(token1)) return {};
+                if (Constants.StablesOrEth.includes(token0) && Constants.StablesOrEth.includes(token1)) continue;
                 const poolToken = Constants.StablesOrEth.includes(token0) ? token0 : token1;
                 const desiredToken = poolToken == token0 ? token1 : token0;
                 let transactionType, usdVolume, usdPrice,amountPoolTokenWithDecimals, amountDesiredTokenWithDecimals;
@@ -248,8 +247,9 @@ class SwapParser {
                     totalSupply = await _desiredToken.totalSupply();
                     poolSymbol = await _poolToken.symbol();
                 } catch(e) {
-                    console.log(e, parsedLog, poolToken, desiredToken)
-                    return;
+                    // console.log(e, parsedLog, poolToken, desiredToken)
+                    console.log('asdflasdflkjasdfkljafsdkjlafdkjlafdkjlakjldfskjl')
+                    continue;
                 }
                 
                 //console.log(desiredToken, poolToken, 'success')
@@ -310,6 +310,7 @@ class SwapParser {
                 try {
                     marketCap = usdPrice*totalSupply/10**desiredDecimals;
                 }catch(e) {
+                    console.log('adfkljafsdkjldaf')
                     console.log(e)
                     marketCap = 0;
                 }

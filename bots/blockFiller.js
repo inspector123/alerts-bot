@@ -51,40 +51,67 @@ export class BlockFiller {
         this.USDT = new ethers.Contract(USDT, USDTABI, this.archiveProvider);
         this.DAI = new ethers.Contract(DAI, DAIABI, this.archiveProvider);
 
+        const blockNumber = await this.archiveProvider.getBlockNumber();
+
+        console.log(`latest archive block: ${blockNumber}`)
+
         await this.intervalGetPrice();
 
     }
 
     async fillBlocksFromBehind(blocks) {
         // step 1: get first blockNumber in your database.
-        const response = await api.get(`/api/blocks/1?min=true`);
-        const { minBlockNumber } = response.data.data[0];
+        const iterations = blocks/1000
+        if (!Number.isInteger(blocks/1000)) {console.log('Not Integer'); return;}
+        for (let i = 0; i <= iterations; i++) {
+            const response = await api.get(`/api/blocks/1?min=true`);
+            const { minBlockNumber } = response.data.data[0];
+            console.log('starting block: ', minBlockNumber)
 
-        // for (let block = minBlockNumber - blockNumber; block < minBlockNumber; block++) {
-        //     this.WETH.queryFilter("Deposit", )
-        // }
-        const time1 = Date.now();
-        const wethDepositEvents = await this.WETH.queryFilter("Deposit", minBlockNumber-blocks,minBlockNumber-1);
-        const wethWithdrawalEvents = await this.WETH.queryFilter("Withdrawal", minBlockNumber-blocks, minBlockNumber-1);
-        const usdcEvents = await this.USDC.queryFilter("Transfer", minBlockNumber-blocks, minBlockNumber-1);
-        const usdtEvents = await this.USDT.queryFilter("Transfer", minBlockNumber-blocks, minBlockNumber-1);
-        const daiEvents = await this.DAI.queryFilter("Transfer", minBlockNumber-blocks, minBlockNumber-1);
+            // for (let block = minBlockNumber - blockNumber; block < minBlockNumber; block++) {
+            //     this.WETH.queryFilter("Deposit", )
+            // }
+            const time1 = Date.now();
+            const wethDepositEvents = await this.WETH.queryFilter("Deposit", minBlockNumber-1000,minBlockNumber-1);
+            const wethWithdrawalEvents = await this.WETH.queryFilter("Withdrawal", minBlockNumber-1000, minBlockNumber-1);
+            const usdcEvents = await this.USDC.queryFilter("Transfer", minBlockNumber-1000, minBlockNumber-1);
+            const usdtEvents = await this.USDT.queryFilter("Transfer", minBlockNumber-1000, minBlockNumber-1);
+            const daiEvents = await this.DAI.queryFilter("Transfer", minBlockNumber-1000, minBlockNumber-1);
 
-        const allEvents = [wethDepositEvents, wethWithdrawalEvents, usdcEvents,usdtEvents,daiEvents]
-        let uniqueEvents = [...new Map(allEvents.map((m) => [m.transactionHash, m])).values()].flat();
-        uniqueEvents.forEach(event=>{
-            this.swapParser.grabSwap(event, this.etherPrice, this.btcPrice);
-        })
-        
-        const totalTime = Date.now()-time1;
-        console.log(totalTime/1000);
-        // console.log(queryFilterResponse_WETH);
-        // con
+            const allEvents = [wethDepositEvents, wethWithdrawalEvents, usdcEvents,usdtEvents,daiEvents]
+            let uniqueEvents = [...new Map(allEvents.map((m) => [m.transactionHash, m])).values()].flat();
+            // uniqueEvents.forEach(async event=>{
+            //     await this.swapParser.grabSwap(event, this.etherPrice, this.btcPrice);
+            // })
+            let swaps = []
+            for (let j = 0; j < uniqueEvents.length; j++) {
+                let blockSwaps = await this.swapParser.grabSwap(uniqueEvents[j],this.etherPrice,this.btcPrice)
+                
+                swaps = [...swaps, blockSwaps]
+            }
+            
+            const totalTime = Date.now()-time1;
+            await this.sendToApi(swaps)
+            console.log(`time for next ${1000*iterations} blocks: ${totalTime/1000}`)
+        }
 
     }
 
-    async sendToApi() {
+    async sendToApi(swaps) {
+        try {
+            //Blocks
+            let _swaps = swaps.flat().filter(b=>b != undefined)
+            
+            for (let i in _swaps) {
+                const response = await api.post(`/api/blocks`, _swaps[i]);
+            }
+            this.swapParser.currentBlockSwaps = []
+           
+        } catch (e) {
+            console.log(e)
+            this.previousBlockSwaps = []
 
+        }
     }
 
     async getEtherPrice() {

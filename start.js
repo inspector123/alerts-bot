@@ -45,4 +45,4 @@ const blockPoster = new BlockPoster(chatId, wallets, AlertBotKey, fullNodeUrl, a
 blockPoster.start();
 
 const blockFiller = new BlockFiller(chatId, archiveUrl);
-await blockFiller.fillBlocksFromBehind(1000);
+blockFiller.fillBlocksFromBehind(10000);

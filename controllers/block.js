@@ -58,12 +58,6 @@ export const getAllBlocks = (req, res, next) => {
 
    export const getBlock = (req, res, next) => {
 
-    console.log(req.params, req.query)
-    // if (!req.params.blockNumber) {
-    //   console.log('noreqparamsid')
-    //   //return next(new AppError("No block found", 404));
-    // }
-    console.log(req.params, req.query)
     if (!req.query.min) {
       conn.query(
         "SELECT * FROM BlockEvents WHERE blockNumber = ?",
