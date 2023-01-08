@@ -63,7 +63,7 @@ export class BlockFiller {
         // step 1: get first blockNumber in your database.
         const iterations = blocks/1000
         if (!Number.isInteger(blocks/1000)) {console.log('Not Integer'); return;}
-        for (let i = 0; i <= iterations; i++) {
+        for (let i = 0; i < iterations; i++) {
             const response = await api.get(`/api/blocks/1?min=true`);
             const { minBlockNumber } = response.data.data[0];
             console.log('starting block: ', minBlockNumber)
@@ -72,26 +72,65 @@ export class BlockFiller {
             //     this.WETH.queryFilter("Deposit", )
             // }
             const time1 = Date.now();
-            const wethDepositEvents = await this.WETH.queryFilter("Deposit", minBlockNumber-1000,minBlockNumber-1);
-            const wethWithdrawalEvents = await this.WETH.queryFilter("Withdrawal", minBlockNumber-1000, minBlockNumber-1);
-            const usdcEvents = await this.USDC.queryFilter("Transfer", minBlockNumber-1000, minBlockNumber-1);
-            const usdtEvents = await this.USDT.queryFilter("Transfer", minBlockNumber-1000, minBlockNumber-1);
-            const daiEvents = await this.DAI.queryFilter("Transfer", minBlockNumber-1000, minBlockNumber-1);
+            //const wethDepositEvents = await this.WETH.queryFilter()
+            // let _wethWithdrawalEvents = []
+            // for (let j = 1; j < 1000; j++) {
+            //     let _events = await this.WETH.queryFilter("Withdrawal", minBlockNumber-j-1, minBlockNumber-j);
+            //     _wethWithdrawalEvents = [..._wethWithdrawalEvents , _events]
+            // }
+            // const wethWithdrawalEvents = await this.WETH.queryFilter("Withdrawal", minBlockNumber-1000, minBlockNumber-1);
+            // console.log(_wethWithdrawalEvents.slice(0,10))
+            // console.log(wethWithdrawalEvents.flat().length, _wethWithdrawalEvents.flat().length)
+            // console.log(_wethWithdrawalEvents.flat().map(b=>b.blockNumber).sort((a,b)=>a-b))
+            const v3topic = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("Swap(address,address,int256,int256,uint160,uint128,int24)"))
+            const v2topic = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("Swap(address,uint256,uint256,uint256,uint256,address)"))
+            // const filter = {
+            //     topics: [v2topic],
+            //     fromBlock: minBlockNumber-1000,
+            //     toBlock: minBlockNumber-999
+            // }
+            //  const test = await this.archiveProvider.getLogs(filter)
+            // console.log(test)
+            // let fromBlock, toBlock
+            let swaps = [];
+            for (let j = 0; j<1000; j++) {
+                let fromBlock =  minBlockNumber - j - 1, toBlock = minBlockNumber-j;
+                let _swaps = await this.archiveProvider.getLogs({topics:[[v2topic,v3topic]], fromBlock,toBlock})
+                console.log(`${j} of 1000`)
+                //let v3swaps = await this.archiveProvider.getLogs({topic: v})
+                swaps = [...swaps, _swaps.flat()]
 
-            const allEvents = [wethDepositEvents, wethWithdrawalEvents, usdcEvents,usdtEvents,daiEvents]
-            let uniqueEvents = [...new Map(allEvents.map((m) => [m.transactionHash, m])).values()].flat();
-            // uniqueEvents.forEach(async event=>{
-            //     await this.swapParser.grabSwap(event, this.etherPrice, this.btcPrice);
-            // })
-            let swaps = []
-            for (let j = 0; j < uniqueEvents.length; j++) {
-                let blockSwaps = await this.swapParser.grabSwap(uniqueEvents[j],this.etherPrice,this.btcPrice)
-                
-                swaps = [...swaps, blockSwaps]
             }
+
             
-            const totalTime = Date.now()-time1;
-            await this.sendToApi(swaps)
+            console.log(swaps.flat().length)
+
+            // const singleFilterTest = (await this.archiveProvider.getLogs(
+            //     {topics:[[v2topic,v3topic]], 
+            //     fromBlock: minBlockNumber-1000, 
+            //     toBlock: minBlockNumber-1
+            // })).flat()
+            // const usdcEvents = await this.USDC.queryFilter("Transfer", minBlockNumber-1000, minBlockNumber-1);
+            // const usdtEvents = await this.USDT.queryFilter("Transfer", minBlockNumber-1000, minBlockNumber-1);
+            // const daiEvents = await this.DAI.queryFilter("Transfer", minBlockNumber-1000, minBlockNumber-1);
+
+            // const allEvents = [wethDepositEvents, wethWithdrawalEvents, usdcEvents,usdtEvents,daiEvents].flat().reverse();
+            // //console.log(allEvents.flat().map(b=>b.blockNumber))
+            // let uniqueEvents = [...new Map(allEvents.flat().map((m) => [m.transactionHash, m])).values()].flat().reverse();
+            // // uniqueEvents.forEach(async event=>{
+            // //     await this.swapParser.grabSwap(event, this.etherPrice, this.btcPrice);
+            // // })
+            // console.log(uniqueEvents.length)
+            //const test = provider.getLogs({ data})
+            // for (let j = 0; j < allEvents.length; j++) {
+            //     let blockSwaps = await this.swapParser.grabSwap(allEvents[j],this.etherPrice,this.btcPrice)
+            //     if (blockSwaps && blockSwaps.length) console.log(allEvents[j].blockNumber)
+            //     //await this.sendToApi(blockSwaps)
+            //     //swaps = [...swaps, blockSwaps]
+            // }
+            
+             const totalTime = Date.now()-time1;
+            //await this.sendToApi(swaps)
             console.log(`time for next ${1000*iterations} blocks: ${totalTime/1000}`)
         }
 
@@ -100,7 +139,8 @@ export class BlockFiller {
     async sendToApi(swaps) {
         try {
             //Blocks
-            let _swaps = swaps.flat().filter(b=>b != undefined)
+            if (!swaps || !swaps.length) return;
+            let _swaps = swaps
             
             for (let i in _swaps) {
                 const response = await api.post(`/api/blocks`, _swaps[i]);

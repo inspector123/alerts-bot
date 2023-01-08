@@ -21,7 +21,7 @@ const { daiContract, disallowedPools, disallowedSymbols, disallowedTo,
     mevBot1, mevBot2, busdETH, USDCUSDT, v2USDTDAI, sushiswapUSDTv2, v3DAI_2, v2USDC, 
     pancakeUSDC, pancakeUSDT, v2USDT, v3_DaiUSDCv4, v3USDC, v3Usdt, v3DaiUsdt,
     KyberSwap, KyberSwapInBetweenContract, USDC, WETH, WBTC, FRAX, BUSD, DAI, USDT,
-    acceptedRouters, botContracts, UniswapV3Router2, OneInchV4Router,OneInchv5Router,SushiSwapRouter, UniswapV2, StablesOrEth, apiKey } = Constants;
+    acceptedRouters, botContracts, UniswapV3Router2, OneInchV4Router,OneInchv5Router,SushiSwapRouter, UniswapV2, StablesOrEth, apiKey , v2topic, v3topic} = Constants;
 
 //import { Interface } from 'ethers';
 
@@ -122,56 +122,10 @@ WALLET: https://etherscan.io/address/${swap.wallet}
 
         })
 
-        const _WETH = new ethers.Contract(Constants.WETH, WETHABI, this.httpProvider);
-        const _USDC = new ethers.Contract(Constants.USDC, USDCABI, this.httpProvider);
-        const _USDT = new ethers.Contract(Constants.USDT, USDTABI, this.httpProvider);
-        //let i = 0;
-
-        _WETH.on("Deposit", async (address, amount, event) => {
-            
-            if (this.blockTxHashes.includes(event.transactionHash)) {
-                return;
-            }
-            this.blockTxHashes = [...this.blockTxHashes, event.transactionHash]
-
-            if (address == Constants.UniswapV3Router2
-                || address  == Constants.OneInchv5Router || address == Constants.UniswapV2 || address == Constants.OneInchV4Router || address == Constants.KyberSwapInBetweenContract) {
-                    this.swapParser.grabSwap(event, this.etherPrice, this.btcPrice);
-                }
-            
-
+        this.httpProvider.on({topics: [[v3topic, v2topic]]}, async (log)=> {
+            const swap = await this.swapParser.grabSwap(log, this.etherPrice, this.btcPrice);
+            console.log(swap)
         })
-
-        _WETH.on("Withdrawal", async (address, amount, event) => {
-            if (this.blockTxHashes.includes(event.transactionHash)) {
-                return;
-            }
-            this.blockTxHashes = [...this.blockTxHashes, event.transactionHash]
-            if (address == UniswapV3Router2
-                || address  == OneInchv5Router || address == UniswapV2 || address == OneInchV4Router || address == KyberSwapInBetweenContract) {
-                    this.swapParser.grabSwap(event, this.etherPrice, this.btcPrice);
-                }
-
-        })
-        _USDC.on("Transfer", async (to,from,amount,event)=>{
-            if (this.blockTxHashes.includes(event.transactionHash)) {
-                return;
-            }
-            this.blockTxHashes = [...this.blockTxHashes, event.transactionHash]
-            this.swapParser.grabSwap(event, this.etherPrice, this.btcPrice);
-            //const rcpt = await event.getTransactionReceipt();
-
-        })
-        _USDT.on("Transfer", async (to,from,amount,event)=>{
-            if (this.blockTxHashes.includes(event.transactionHash)) {
-                return;
-            }
-            this.blockTxHashes = [...this.blockTxHashes, event.transactionHash]
-            this.swapParser.grabSwap(event, this.etherPrice, this.btcPrice);
-            
-        })
-//
-
 
     }
     

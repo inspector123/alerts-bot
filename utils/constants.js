@@ -1,3 +1,4 @@
+import { ethers } from 'ethers';
 const apiKey = `3UNWDPMM65ARUPABPKM9MQXEAM3MYAATN6`;
 
 //contracts for log.address filters
@@ -59,13 +60,16 @@ const disallowedTo = [mevBot1, mevBot2, "0x00000000008c4fb1c916e0c88fd4cc402d935
 
 const daiContract = "0x6B175474E89094C44Da98b954EedeAC495271d0F"
 
+const v3topic = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("Swap(address,address,int256,int256,uint160,uint128,int24)"))
+const v2topic = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("Swap(address,uint256,uint256,uint256,uint256,address)"))
 
 
 const Constants = { daiContract, disallowedPools, disallowedSymbols, disallowedTo, 
     mevBot1, mevBot2, busdETH, USDCUSDT, v2USDTDAI, sushiswapUSDTv2, v3DAI_2, v2USDC, 
     pancakeUSDC, pancakeUSDT, v2USDT, v3_DaiUSDCv4, v3USDC, v3Usdt, v3DaiUsdt,
     KyberSwap, KyberSwapInBetweenContract, USDC, WETH, WBTC, FRAX, BUSD, DAI, USDT,
-    acceptedRouters, botContracts, UniswapV3Router2, OneInchV4Router,OneInchv5Router,SushiSwapRouter, UniswapV2, StablesOrEth, apiKey
+    acceptedRouters, botContracts, UniswapV3Router2, OneInchV4Router,OneInchv5Router,SushiSwapRouter, UniswapV2, StablesOrEth, apiKey,
+    v3topic, v2topic
 }
 
 export default Constants
