@@ -41,8 +41,8 @@ const fullNodeUrl = `http://${fullNodeIp}:${httpPort}`
 const archiveUrl = `http://${archiveNodeIp}:${httpPort}`
 //watcher.runVolumeCheck(1)
 
-const blockPoster = new BlockPoster(chatId, wallets, AlertBotKey, fullNodeUrl, archiveUrl);
-blockPoster.start();
+// const blockPoster = new BlockPoster(chatId, wallets, AlertBotKey, fullNodeUrl, archiveUrl);
+// blockPoster.start();
 
-// const blockFiller = new BlockFiller(chatId, archiveUrl);
-// blockFiller.fillBlocksFromBehind(1000);
+const blockFiller = new BlockFiller(chatId, archiveUrl);
+blockFiller.fillBlocksFromBehind(1000);

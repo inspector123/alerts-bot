@@ -25,7 +25,7 @@ import Constants from "../utils/constants.js"
 const { daiContract, disallowedPools, disallowedSymbols, disallowedTo, 
     mevBot1, mevBot2, busdETH, USDCUSDT, v2USDTDAI, sushiswapUSDTv2, v3DAI_2, v2USDC, 
     pancakeUSDC, pancakeUSDT, v2USDT, v3_DaiUSDCv4, v3USDC, v3Usdt, v3DaiUsdt,
-    KyberSwap, KyberSwapInBetweenContract, USDC, WETH, WBTC, FRAX, BUSD, DAI, USDT,
+    KyberSwap, KyberSwapInBetweenContract, USDC, WETH, WBTC, FRAX, BUSD, DAI, USDT, wstETH,
     acceptedRouters, botContracts, UniswapV3Router2, OneInchV4Router,OneInchv5Router,SushiSwapRouter, UniswapV2, StablesOrEth, apiKey } = Constants;
 import SwapParser from '../utils/swapParser.js';
 
@@ -45,18 +45,9 @@ export class BlockFiller {
 
     async contractsSetup() {
         
-
-        this.WETH = new ethers.Contract(WETH, WETHABI, this.archiveProvider);
-        this.USDC = new ethers.Contract(USDC, USDCABI, this.archiveProvider);
-        this.USDT = new ethers.Contract(USDT, USDTABI, this.archiveProvider);
-        this.DAI = new ethers.Contract(DAI, DAIABI, this.archiveProvider);
-
         const blockNumber = await this.archiveProvider.getBlockNumber();
 
         console.log(`latest archive block: ${blockNumber}`)
-
-        await this.intervalGetPrice();
-
     }
 
     async fillBlocksFromBehind(blocks) {
@@ -72,8 +63,8 @@ export class BlockFiller {
             //     this.WETH.queryFilter("Deposit", )
             // }
             const time1 = Date.now();
-            //const wethDepositEvents = await this.WETH.queryFilter()
-            // let _wethWithdrawalEvents = []
+            // const wethDepositEvents = await this.WETH.queryFilter()
+            // let _events = []
             // for (let j = 1; j < 1000; j++) {
             //     let _events = await this.WETH.queryFilter("Withdrawal", minBlockNumber-j-1, minBlockNumber-j);
             //     _wethWithdrawalEvents = [..._wethWithdrawalEvents , _events]
@@ -92,48 +83,36 @@ export class BlockFiller {
             //  const test = await this.archiveProvider.getLogs(filter)
             // console.log(test)
             // let fromBlock, toBlock
-            let swaps = [];
+            let swapLogs = [];
             for (let j = 0; j<1000; j++) {
                 let fromBlock =  minBlockNumber - j - 1, toBlock = minBlockNumber-j;
-                let _swaps = await this.archiveProvider.getLogs({topics:[[v2topic,v3topic]], fromBlock,toBlock})
+                let _swapLogs = await this.archiveProvider.getLogs({topics:[[v2topic,v3topic]], fromBlock,toBlock})
                 console.log(`${j} of 1000`)
-                //let v3swaps = await this.archiveProvider.getLogs({topic: v})
-                swaps = [...swaps, _swaps.flat()]
+                swapLogs = [...swapLogs, _swapLogs.flat()]
+
+
+
 
             }
 
-            
-            console.log(swaps.flat().length)
-
-            // const singleFilterTest = (await this.archiveProvider.getLogs(
-            //     {topics:[[v2topic,v3topic]], 
-            //     fromBlock: minBlockNumber-1000, 
-            //     toBlock: minBlockNumber-1
-            // })).flat()
-            // const usdcEvents = await this.USDC.queryFilter("Transfer", minBlockNumber-1000, minBlockNumber-1);
-            // const usdtEvents = await this.USDT.queryFilter("Transfer", minBlockNumber-1000, minBlockNumber-1);
-            // const daiEvents = await this.DAI.queryFilter("Transfer", minBlockNumber-1000, minBlockNumber-1);
-
-            // const allEvents = [wethDepositEvents, wethWithdrawalEvents, usdcEvents,usdtEvents,daiEvents].flat().reverse();
-            // //console.log(allEvents.flat().map(b=>b.blockNumber))
-            // let uniqueEvents = [...new Map(allEvents.flat().map((m) => [m.transactionHash, m])).values()].flat().reverse();
-            // // uniqueEvents.forEach(async event=>{
-            // //     await this.swapParser.grabSwap(event, this.etherPrice, this.btcPrice);
-            // // })
-            // console.log(uniqueEvents.length)
-            //const test = provider.getLogs({ data})
-            // for (let j = 0; j < allEvents.length; j++) {
-            //     let blockSwaps = await this.swapParser.grabSwap(allEvents[j],this.etherPrice,this.btcPrice)
-            //     if (blockSwaps && blockSwaps.length) console.log(allEvents[j].blockNumber)
-            //     //await this.sendToApi(blockSwaps)
-            //     //swaps = [...swaps, blockSwaps]
+            console.log(swapLogs.flat().filter(l=>!disallowedPools.includes(l.address)).length)
+            // for (let k in swapLogs) {
+            //     let parsedSwap = await this.swapParser.grabSwap(swapLogs[k]);
+            //    // await this.sendToApiSingle(parsedSwap);
             // }
-            
-             const totalTime = Date.now()-time1;
-            //await this.sendToApi(swaps)
+            const totalTime = Date.now()-time1;
             console.log(`time for next ${1000*iterations} blocks: ${totalTime/1000}`)
         }
 
+    }
+
+    async sendToApiSingle(swap) {
+        try {
+            if (!swap || swap == undefined || swap == {} || swap.usdPrice == undefined) return;
+            const response = await api.post(`/api/blocks`, swap)
+        } catch(e) {
+            console.log('send single failed', e.response.data.err, swap)
+        }
     }
 
     async sendToApi(swaps) {
@@ -154,36 +133,5 @@ export class BlockFiller {
         }
     }
 
-    async getEtherPrice() {
-        const url = `https://api.etherscan.io/api?module=stats&action=ethprice&apikey=${Constants.apiKey}`;
-        
-        await axios.get(url).then((r) => {
-            if (r.data.status !== 0) {
-                if (r.data.message != "NOTOK") {
-                    this.etherPrice = parseInt(r.data.result.ethusd)
-                    const {ethusd, ethbtc} = r.data.result;
-                    //console.log(r.data.result)
-                    //console.log(ethusd/ethbtc);
-                    this.btcPrice = ethusd/ethbtc
 
-                    console.log('Current Price of Ether: $', this.etherPrice)
-                    console.log('Current Price of BTC:', this.btcPrice)
-                    return;
-                } else {
-                    console.log('Error getting price')
-                    return;
-                }
-            } 
-        }).catch(e=>{
-            console.log(e)
-            this.etherPrice = 1200;
-            this.btcPrice = 16000;
-        });
-        return;
-    }
-
-    async intervalGetPrice() {
-        await this.getEtherPrice();
-        setInterval(this.getEtherPrice, 60000)
-    }
 }

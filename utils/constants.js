@@ -62,14 +62,14 @@ const daiContract = "0x6B175474E89094C44Da98b954EedeAC495271d0F"
 
 const v3topic = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("Swap(address,address,int256,int256,uint160,uint128,int24)"))
 const v2topic = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("Swap(address,uint256,uint256,uint256,uint256,address)"))
-
+const wstETH = "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"
 
 const Constants = { daiContract, disallowedPools, disallowedSymbols, disallowedTo, 
     mevBot1, mevBot2, busdETH, USDCUSDT, v2USDTDAI, sushiswapUSDTv2, v3DAI_2, v2USDC, 
     pancakeUSDC, pancakeUSDT, v2USDT, v3_DaiUSDCv4, v3USDC, v3Usdt, v3DaiUsdt,
     KyberSwap, KyberSwapInBetweenContract, USDC, WETH, WBTC, FRAX, BUSD, DAI, USDT,
     acceptedRouters, botContracts, UniswapV3Router2, OneInchV4Router,OneInchv5Router,SushiSwapRouter, UniswapV2, StablesOrEth, apiKey,
-    v3topic, v2topic
+    v3topic, v2topic, wstETH
 }
 
 export default Constants

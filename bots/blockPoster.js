@@ -62,7 +62,7 @@ export class BlockPoster {
         
         try {
             //Blocks
-            let swaps = previousBlockSwaps.flat().filter(b=>b.blockNumber)
+            let swaps = previousBlockSwaps.flat().filter(b=>b != undefined)
             
             
             for (let i in swaps) {
@@ -74,12 +74,6 @@ export class BlockPoster {
             this.previousBlockSwaps = []
 
         }
-
-        this.swapParser.currentBlockSwaps = [];
-        // how will i calculate volume5m,volume15m,volume1h,volume1D?
-        // naive implementation: get all contracts, add volume to last volume entry.
-
-                //lol.
     }
 
     async sendToTelegram(currentBlockSwaps) {
@@ -102,20 +96,16 @@ WALLET: https://etherscan.io/address/${swap.wallet}
     
     async runEthersBlockCheck(blocks) {
         if (blocks) this.blocks = blocks;
-
-        await this.intervalGetPrice();
         this.httpProvider.on('block', async (block)=>{
             console.log('latest block: ', block)
-            this.blockTxHashes = [];
 
 
             if (this.swapParser.currentBlockSwaps.length) {
                 this.previousBlockSwaps = this.swapParser.currentBlockSwaps;
                 this.swapParser.currentBlockSwaps = [];
-                // console.log(this.previousBlockSwaps)
                 await this.sendToApi(this.previousBlockSwaps);
                 //await this.sendToTelegram(this.previousBlockSwaps);
-               // this.previousBlockSwaps = [];
+                this.previousBlockSwaps = [];
 
             }
 
@@ -123,47 +113,11 @@ WALLET: https://etherscan.io/address/${swap.wallet}
         })
 
         this.httpProvider.on({topics: [[v3topic, v2topic]]}, async (log)=> {
-            const swap = await this.swapParser.grabSwap(log, this.etherPrice, this.btcPrice);
-            console.log(swap)
+            await this.swapParser.grabSwap(log);
         })
 
     }
     
-
-
-    async getEtherPrice() {
-        const url = `https://api.etherscan.io/api?module=stats&action=ethprice&apikey=${Constants.apiKey}`;
-        
-        await axios.get(url).then((r) => {
-            if (r.data.status !== 0) {
-                if (r.data.message != "NOTOK") {
-                    this.etherPrice = parseInt(r.data.result.ethusd)
-                    const {ethusd, ethbtc} = r.data.result;
-                    //console.log(r.data.result)
-                    //console.log(ethusd/ethbtc);
-                    this.btcPrice = ethusd/ethbtc
-
-                    console.log('Current Price of Ether: $', this.etherPrice)
-                    console.log('Current Price of BTC:', this.btcPrice)
-                    return;
-                } else {
-                    console.log('Error getting price')
-                    return;
-                }
-            } 
-        }).catch(e=>{
-            console.log(e)
-            this.etherPrice = 1200;
-            this.btcPrice = 16000;
-        });
-        return;
-    }
-
-    async intervalGetPrice() {
-        await this.getEtherPrice();
-        setInterval(this.getEtherPrice, 60000)
-    }
-
     startBots = async () => {
         this.alertBot.command('chatId', ctx=>this.alertBot.telegram.sendMessage(ctx.chat.id, `Chat Id is ${ctx.chat.id}`))
         
