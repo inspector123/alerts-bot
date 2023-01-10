@@ -59,21 +59,20 @@ export class BlockPoster {
 
     
     async sendToApi(previousBlockSwaps) {
+        //Blocks
+        let swaps = previousBlockSwaps.flat().filter(b=>b != undefined)
+        //console.log(swaps)
         
-        try {
-            //Blocks
-            let swaps = previousBlockSwaps.flat().filter(b=>b != undefined)
-            
-            
-            for (let i in swaps) {
+        for (let i in swaps) {
+            try {
                 const response = await api.post(`/api/blocks`, swaps[i]);
+            } catch(e) {
+                console.log(e.response?.err?.data)
             }
-           
-        } catch (e) {
-            console.log(e)
-            this.previousBlockSwaps = []
-
         }
+        console.log('success')
+        this.previousBlockSwaps = []
+
     }
 
     async sendToTelegram(currentBlockSwaps) {
@@ -99,10 +98,9 @@ WALLET: https://etherscan.io/address/${swap.wallet}
         this.httpProvider.on('block', async (block)=>{
             console.log('latest block: ', block)
 
-
-            if (this.swapParser.currentBlockSwaps.length) {
-                this.previousBlockSwaps = this.swapParser.currentBlockSwaps;
-                this.swapParser.currentBlockSwaps = [];
+            if (this.currentBlockSwaps.length) {
+                this.previousBlockSwaps = this.currentBlockSwaps;
+                this.currentBlockSwaps = [];
                 await this.sendToApi(this.previousBlockSwaps);
                 //await this.sendToTelegram(this.previousBlockSwaps);
                 this.previousBlockSwaps = [];
@@ -113,22 +111,14 @@ WALLET: https://etherscan.io/address/${swap.wallet}
         })
 
         this.httpProvider.on({topics: [[v3topic, v2topic]]}, async (log)=> {
-            await this.swapParser.grabSwap(log);
+            const response = await this.swapParser.grabSwap(log);
+            this.currentBlockSwaps = [...this.currentBlockSwaps, response]
         })
 
     }
     
     startBots = async () => {
         this.alertBot.command('chatId', ctx=>this.alertBot.telegram.sendMessage(ctx.chat.id, `Chat Id is ${ctx.chat.id}`))
-        
-        // this.volumeBot.command('interrupt', ()=>{
-        //     this.volumeBot.telegram.sendMessage(this.chatId, `Attempting to interrupt...`)
-        //     this.interrupt = true;
-        // })
-        // this.volumeBot.command('restart', ()=>{
-        //     this.volumeBot.telegram.sendMessage(this.chatId, `Attempting to restart...`)
-        //     this.interrupt = false;
-        // })
         this.alertBot.command('start', ctx => {
             if (this.started) {
 

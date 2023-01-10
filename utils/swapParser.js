@@ -51,16 +51,21 @@ class SwapParser {
     async handlev2Log(log) {
         try {
         
-            //blockObject
+            const tx = await this.httpProvider.getTransaction(log.transactionHash);
 
             const _interface = new utils.Interface(univ2PairABI);
             const _v2Pair = new ethers.Contract(log.address, univ2PairABI, this.httpProvider);
             //get swap log for v2
+            const pairAddress = log.address;
             const parsedLog = _interface.parseLog(log);
             //get tokens from pool interface
             const token0 = await _v2Pair.token0();
             const token1 = await _v2Pair.token1();
             if (Constants.StablesOrEth.includes(token0) && Constants.StablesOrEth.includes(token1)) return;
+            //need case where neither is a stablecoin.
+            if (!StablesOrEth.includes(token0) && !StablesOrEth.includes(token1)) {
+                return; //handle this later...
+            }
             const poolToken = Constants.StablesOrEth.includes(token0) ? token0 : token1;
             const desiredToken = poolToken == token0 ? token1 : token0;
             //console.log(poolToken, desiredToken)
@@ -96,11 +101,19 @@ class SwapParser {
             let transactionType,usdVolume = 0,usdPrice = 0, amountPoolTokenWithDecimals, amountDesiredTokenWithDecimals;
 
             //v3&v2y
-            const totalSupply = await _desiredToken.totalSupply();
-            const poolDecimals = await _poolToken.decimals();
-            const desiredDecimals = await _desiredToken.decimals();
-            const desiredSymbol = await _desiredToken.symbol();
-            const isStableCoin = [USDC,USDT,BUSD,DAI].includes(poolToken);
+            let poolDecimals, desiredDecimals, desiredSymbol, totalSupply, poolSymbol;
+            try {
+                poolDecimals = await _poolToken.decimals();
+                desiredDecimals = await _desiredToken.decimals();
+                desiredSymbol = await _desiredToken.symbol();
+                totalSupply = await _desiredToken.totalSupply();
+                poolSymbol = await _poolToken.symbol();
+            } catch(e) {
+                // console.log(e, parsedLog, poolToken, desiredToken)
+                console.log('asdflasdflkjasdfkljafsdkjlafdkjlafdkjlakjldfskjl')
+                return {};
+            }
+            const isStableCoin = [USDC,USDT,BUSD,DAI, FRAX].includes(poolToken);
             const isWeth = poolToken == WETH;
             const isWBTC = poolToken == WBTC;
             //v2
@@ -148,7 +161,7 @@ class SwapParser {
 
             //v3
             //v3
-            let marketCap;
+            let marketCap = 0;
             try {
                 marketCap = usdPrice*totalSupply/10**desiredDecimals;
             }catch(e) {
@@ -164,13 +177,17 @@ class SwapParser {
                 usdPrice: usdPrice,
                 isBuy: transactionType,
                 txHash: log.transactionHash,
-                wallet: "",
-                router: "",
-                logIndex: log.logIndex,
-                v3Orv2: "v2",
-                isEpiWallet: false,
+                wallet: tx.from,
+                router: this.routerName(tx.to),
                 etherPrice: this.etherPrice,
-                marketCap: marketCap == null ? 0 : marketCap
+                marketCap: marketCap == null ? 0 : marketCap,
+                pairAddress,
+                token0,
+                token1,
+                token0Decimals: token0 == poolToken ? poolDecimals : desiredDecimals,
+                token1Decimals: token1 == poolToken ? poolDecimals : desiredDecimals,
+                token0Symbol: token0 == poolToken ? poolSymbol : desiredSymbol,
+                token1Symbol: token1 == poolToken ? poolSymbol : desiredSymbol
             }
             
             return v2SwapsToAdd
@@ -182,7 +199,10 @@ class SwapParser {
     async handlev3Log(log) {
         try {
             //console.log(receipt)
+            const tx = await this.httpProvider.getTransaction(log.transactionHash)
+
             const _interface = new utils.Interface(univ3PoolABI);
+            const pairAddress = log.address;
             const _v3Pair = new ethers.Contract(log.address, univ2PairABI, this.httpProvider);
             //get swap log for v3
             let parsedLog;
@@ -194,6 +214,9 @@ class SwapParser {
             const token0 = await _v3Pair.token0();
             const token1 = await _v3Pair.token1();
             if (Constants.StablesOrEth.includes(token0) && Constants.StablesOrEth.includes(token1)) return;
+            if (!StablesOrEth.includes(token0) && !StablesOrEth.includes(token1)) {
+                return; //handle this later...
+            }
             const poolToken = Constants.StablesOrEth.includes(token0) ? token0 : token1;
             const desiredToken = poolToken == token0 ? token1 : token0;
             let transactionType, usdVolume, usdPrice,amountPoolTokenWithDecimals, amountDesiredTokenWithDecimals;
@@ -268,7 +291,7 @@ class SwapParser {
                 }
             }
             //v3
-            let marketCap;
+            let marketCap = 0;
             try {
                 marketCap = usdPrice*totalSupply/10**desiredDecimals;
             }catch(e) {
@@ -285,19 +308,23 @@ class SwapParser {
                 usdPrice: usdPrice,
                 isBuy: transactionType,
                 txHash: log.transactionHash,
-                wallet: "",
-                router: "",
-                logIndex: log.logIndex,
-                v3Orv2: "v3",
-                isEpiWallet: false,
+                wallet: tx.from,
+                router: this.routerName(tx.to),
                 etherPrice: this.etherPrice,
                 marketCap: marketCap == null ? 0 : marketCap,
+                pairAddress,
+                token0,
+                token1,
+                token0Decimals: token0 == poolToken ? poolDecimals : desiredDecimals,
+                token1Decimals: token1 == poolToken ? poolDecimals : desiredDecimals,
+                token0Symbol: token0 == poolToken ? poolSymbol : desiredSymbol,
+                token1Symbol: token1 == poolToken ? poolSymbol : desiredSymbol
             }
             
             return v3Swap
         }
         catch(e) {
-            console.log('v3Logs error', e, v3Logs)
+            console.log('v3Logs error', e)
         }
     }
 
