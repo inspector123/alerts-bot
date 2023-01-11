@@ -1,4 +1,5 @@
 import { BlockPoster } from './bots/blockPoster.js'
+import * as dotenv from 'dotenv'
 import { BlockFiller } from './bots/blockFiller.js'
 import wallets from "./utils/wallets.js"
 import express from "express"
@@ -6,9 +7,10 @@ import cors from "cors"
 import router from './routes/index.js'
 import AppError from "./utils/AppError.js";
 import errorHandler from "./utils/errorHandler.js";
-const AlertBotKey = '5802732074:AAFOFJTQf97hZyXZvrkLbLcsKGStBQOlw4Y';
-const VolumeBotKey = "5974906041:AAFGovND1cdDX3dPZ3TBgXnweO6Zv89oZAE";
 import bodyParser from 'body-parser'
+
+dotenv.config();
+const AlertBotKey = process.env.ALERT_BOT_KEY;
 const app = express();
 
 app.use(bodyParser.json())
@@ -39,7 +41,6 @@ const chatId = CHAT_ID_BETA_TEST;
 
 const fullNodeUrl = `http://${fullNodeIp}:${httpPort}`
 const archiveUrl = `http://${archiveNodeIp}:${httpPort}`
-//watcher.runVolumeCheck(1)
 
 const blockPoster = new BlockPoster(chatId, wallets, AlertBotKey, fullNodeUrl, archiveUrl);
 blockPoster.start();
