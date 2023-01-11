@@ -18,7 +18,7 @@ export const getAllBlocks = (req, res, next) => {
     
     const _body = Object.values(body)
     const result = conn.query(
-      "INSERT INTO BlockEvents (blockNumber,symbol,contract,usdVolume,usdPrice,isBuy,txHash,wallet,router,logIndex,v3Orv2,isEpiWallet,etherPrice, marketCap) VALUES(?);",[_body], (err,data)=>{
+      "INSERT INTO BlockEvents (blockNumber,symbol,contract,usdVolume,usdPrice,isBuy,txHash,wallet,router,etherPrice, marketCap, pairAddress,token0,token1,token0Decimals,token1Decimals,token0Symbol,token1Symbol) VALUES(?);",[_body], (err,data)=>{
         if (err) res.status(500).json({status: "error", err})
         else {
           res.status(200).json({
@@ -57,22 +57,37 @@ export const getAllBlocks = (req, res, next) => {
  */
 
    export const getBlock = (req, res, next) => {
-    if (!req.params.id) {
-      return next(new AppError("No block found", 404));
-    }
-    conn.query(
-      "SELECT * FROM BlockEvents WHERE blockNumber = ?",
-      [req.params.id],
-      function (err, data, fields) {
-        if (err) return next(new AppError(err, 500));
-        res.status(200).json({
-          status: "success",
-          length: data?.length,
-          data: data,
+
+    if (!req.query.min) {
+      conn.query(
+        "SELECT * FROM BlockEvents WHERE blockNumber = ?",
+        [req.params.id],
+        function (err, data, fields) {
+          //if (err) return next(new AppError(err, 500));
+          res.status(200).json({
+            status: "success",
+            length: data?.length,
+            data: data,
+          });
+        }
+      );
+    } else {
+      conn.query(
+        "SELECT min(blockNumber) as minBlockNumber from BlockEvents",
+        function (err, data, fields) {
+          if(err) return next(new AppError(err))
+          res.status(200).json({
+            status: "success",
+            length: data?.length,
+            data: data,
+          });
         });
-      }
-    );
+    }
    };
+
+   export const getMinBlockNumber = (req, res, next) => {
+    
+   }
 
    
 

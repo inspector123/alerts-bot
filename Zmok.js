@@ -48,7 +48,7 @@ timestamp varchar(50) NOT NULL,
 PRIMARY KEY (id)
 );
 
-CREATE TABLE Contract(id int NOT NULL AUTO_INCREMENT,
+CREATE TABLE Contracts(id int NOT NULL AUTO_INCREMENT,
 symbol varchar(50) NOT NULL,
 decimals varchar(50) NOT NULL,
 contract varchar(50) NOT NULL,
@@ -60,8 +60,8 @@ volume1d varchar(50) NOT NULL,
 PRIMARY KEY (id)
 
 );
-CREATE TABLE BlockEvents2(id int NOT NULL AUTO_INCREMENT,
-blockNumber VARCHAR(100),
+CREATE TABLE BlockEvents(id int NOT NULL AUTO_INCREMENT,
+blockNumber double,
 symbol VARCHAR(100),
 contract VARCHAR(100),
 usdVolume double,
@@ -70,10 +70,15 @@ isBuy int,
 txHash VARCHAR(100),
 wallet VARCHAR(100),
 router VARCHAR(100),
-logIndex VARCHAR(100),
-v3Orv2 VARCHAR(100), 
-isEpiWallet VARCHAR(100),
 etherPrice double,
+marketCap double,
+pairAddress VARCHAR(100),
+token0 VARCHAR(100),
+token1 VARCHAR(100),
+token0Decimals int,
+token1Decimals int,
+token0Symbol VARCHAR(100),
+token1Symbol VARCHAR(100),
 PRIMARY KEY(id)
 );
 

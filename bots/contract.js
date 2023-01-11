@@ -1,0 +1,1 @@
+// Handles Contracts table, timer jobs and telegram alerts.

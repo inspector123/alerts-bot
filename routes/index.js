@@ -1,5 +1,5 @@
 import express from 'express'
-import { getBlock, getAllBlocks, createBlock, deleteBlock } from '../controllers/block.js';
+import { getBlock, getAllBlocks, createBlock, deleteBlock, getMinBlockNumber } from '../controllers/block.js';
 import { getAllContracts, createContracts, deleteContract, updateContract } from '../controllers/contract.js';
 const router = express.Router();
 //
@@ -11,7 +11,9 @@ router.route("/api/blocks").get(getAllBlocks)
 
 router.route("/api/blocks/:blockNumber")
     .get(getBlock)
+    .get(getMinBlockNumber)
     .delete(deleteBlock)
+
 
 //contracts table
 router.route("/api/contracts")
