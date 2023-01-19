@@ -44,6 +44,3 @@ const archiveUrl = `http://${archiveNodeIp}:${httpPort}`
 
 const blockPoster = new BlockPoster(chatId, wallets, AlertBotKey, fullNodeUrl, archiveUrl);
 blockPoster.start();
-
-// const blockFiller = new BlockFiller(chatId, archiveUrl);
-// blockFiller.fillBlocksFromBehind(1000);
